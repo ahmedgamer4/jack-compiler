@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-var nextLabel = 1
+var (
+	nextLabel = 1
+	nextFun   = 1
+)
 
 func WriteArithmetic(cRecord CommandRecord) string {
 	commands := ""
@@ -91,7 +94,7 @@ func WriteArithmetic(cRecord CommandRecord) string {
 func WritePush(cRecord CommandRecord) string {
 	commands := ""
 
-	switch cRecord.segment {
+	switch cRecord.arg0 {
 	case "constant":
 		commands = fmt.Sprintf(`
 			@%s
@@ -101,7 +104,7 @@ func WritePush(cRecord CommandRecord) string {
 			M=D
 			@SP
 			M=M+1
-		`, cRecord.num)
+		`, cRecord.arg1)
 	case "local", "argument", "this", "that":
 		commands = fmt.Sprintf(`
 			@%s
@@ -114,7 +117,7 @@ func WritePush(cRecord CommandRecord) string {
 			M=D
 			@SP
 			M=M+1
-		`, cRecord.num, getSegmentBase(cRecord.segment))
+		`, cRecord.arg1, getSegmentBase(cRecord.arg0))
 
 	case "static":
 		commands = fmt.Sprintf(`
@@ -125,7 +128,7 @@ func WritePush(cRecord CommandRecord) string {
 			M=D
 			@SP
 			M=M+1
-		`, strings.Split(GetFilename(), ".")[0], cRecord.num)
+		`, strings.Split(GetFilename(), ".")[0], cRecord.arg1)
 	case "temp":
 		commands = fmt.Sprintf(`
 			@%s
@@ -138,7 +141,7 @@ func WritePush(cRecord CommandRecord) string {
 			M=D
 			@SP
 			M=M+1
-		`, cRecord.num)
+		`, cRecord.arg1)
 	case "pointer":
 		commands = fmt.Sprintf(`
 			@%s
@@ -151,16 +154,16 @@ func WritePush(cRecord CommandRecord) string {
 			M=D
 			@SP
 			M=M+1
-		`, cRecord.num)
+		`, cRecord.arg1)
 	}
 
-	return "// " + cRecord.command + " " + cRecord.segment + " " + cRecord.num + "\n" + commands
+	return "// " + cRecord.command + " " + cRecord.arg0 + " " + cRecord.arg1 + "\n" + commands
 }
 
 func WritePop(cRecord CommandRecord) string {
 	commands := ""
 
-	switch cRecord.segment {
+	switch cRecord.arg0 {
 	case "local", "argument", "this", "that":
 		commands = fmt.Sprintf(`
 			@%s
@@ -175,7 +178,7 @@ func WritePop(cRecord CommandRecord) string {
 			@R13
 			A=M
 			M=D
-		`, cRecord.num, getSegmentBase(cRecord.segment))
+		`, cRecord.arg1, getSegmentBase(cRecord.arg0))
 	case "static":
 		commands = fmt.Sprintf(`
 			@SP
@@ -183,7 +186,7 @@ func WritePop(cRecord CommandRecord) string {
 			D=M
 			@%s.%s
 			M=D
-		`, strings.Split(GetFilename(), ".")[0], cRecord.num)
+		`, strings.Split(GetFilename(), ".")[0], cRecord.arg1)
 	case "temp":
 		commands = fmt.Sprintf(`
 			@%s
@@ -198,7 +201,7 @@ func WritePop(cRecord CommandRecord) string {
 			@R13
 			A=M
 			M=D
-		`, cRecord.num)
+		`, cRecord.arg1)
 	case "pointer":
 		commands = fmt.Sprintf(`
 			@%s
@@ -213,10 +216,159 @@ func WritePop(cRecord CommandRecord) string {
 			@R13
 			A=M
 			M=D
-		`, cRecord.num)
+		`, cRecord.arg1)
 	}
 
-	return "// " + cRecord.command + " " + cRecord.segment + " " + cRecord.num + "\n" + commands
+	return "// " + cRecord.command + " " + cRecord.arg0 + " " + cRecord.arg1 + "\n" + commands
+}
+
+func writeLabel(cRecord CommandRecord) string {
+	return fmt.Sprintf(`
+    (%s)
+    `, cRecord.arg1)
+}
+
+func writeGoto(cRecord CommandRecord) string {
+	return fmt.Sprintf(`
+    @%s
+    0;JMP
+    `, cRecord.arg1)
+}
+
+func writeIfGoto(cRecord CommandRecord) string {
+	return fmt.Sprintf(`
+    @SP
+    AM=M-1
+    D=M
+    @%s
+    D;JMP
+    `, cRecord.arg1)
+}
+
+func writeCall(cRecord CommandRecord) string {
+	funName := cRecord.arg0
+	nArgs := cRecord.arg1
+
+	res := fmt.Sprintf(`
+    @%sret%d
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    %s
+    %s
+    %s
+    %s
+    @%s
+    D=A
+    @5
+    D=A+D
+    @SP
+    D=M-D
+    @ARG
+    M=D
+    @SP
+    D=M
+    @LCL
+    M=D
+    @%s
+    0;JMP
+    (%sret%d)
+    `, funName, nextFun, pushIntoStack("LCL"), pushIntoStack("ARG"), pushIntoStack("THIS"), pushIntoStack("THAT"), nArgs, funName, funName, nextFun)
+
+	nextFun++
+
+	return res
+}
+
+func writeFun(cRecord CommandRecord) string {
+	funName := cRecord.arg0
+	nArgs := cRecord.arg1
+
+	res := fmt.Sprintf(`
+    (%s)
+    `, funName)
+
+	for range nArgs {
+		res += pushIntoStack("0")
+	}
+
+	return res
+}
+
+func writeReturn(cRecord CommandRecord) string {
+	return fmt.Sprintf(`
+    @LCL
+    D=M
+    @R13
+    M=D
+    @5
+    D=A
+    @R13
+    A=M-D
+    D=M
+    @retAddr
+    M=D
+    %s
+    @ARG
+    D=M+1
+    @SP
+    M=D
+    @R13
+    A=M-1
+    D=M
+    @THAT
+    M=D
+    @R13
+    D=M
+    @2
+    A=D-A
+    D=M
+    @THIS
+    M=D
+    @R13
+    D=M
+    @3
+    A=D-A
+    D=M
+    @ARG
+    M=D
+    @R13
+    D=M
+    @4
+    A=D-A
+    D=M
+    @LCL
+    M=D
+    @retAddr
+    A=M
+    0;JMP
+    `, popFromStack("ARG"))
+}
+
+func pushIntoStack(seg string) string {
+	return fmt.Sprintf(`
+    @%s
+    D=M
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    `, seg)
+}
+
+func popFromStack(seg string) string {
+	return fmt.Sprintf(`
+    @SP
+    AM=M-1
+    D=M
+    @%s
+    A=M
+    M=D
+    `, seg)
 }
 
 func Translate(cRecord CommandRecord) string {
@@ -227,6 +379,16 @@ func Translate(cRecord CommandRecord) string {
 		return WritePop(cRecord)
 	case C_ARITHMETIC:
 		return WriteArithmetic(cRecord)
+	case C_LABEL:
+		return writeLabel(cRecord)
+	case C_GOTO:
+		return writeGoto(cRecord)
+	case C_CALL:
+		return writeCall(cRecord)
+	case C_FUNCTION:
+		return writeFun(cRecord)
+	case C_RETURN:
+		return writeReturn(cRecord)
 	default:
 		return ""
 	}
