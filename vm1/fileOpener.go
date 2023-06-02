@@ -2,20 +2,34 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"strings"
-
-	"github.com/fatih/color"
 )
 
-func OpenFile() []string {
-	if len(os.Args) < 2 {
-		fmt.Println("Please provide a file path as an arugment")
-	}
+func HandleOpen() ([]string, string) {
+	isDir := flag.Bool("d", false, "Compile a directory")
+	flag.Parse()
+	lines := make([]string, 0)
+	outputFile := ""
+	fmt.Println(*isDir)
 
-	filePath := os.Args[1]
-	readFile, err := os.Open(filePath)
+	if *isDir {
+		lines = openDir()
+		outputFile = GetInArg() + "/" + path.Base(GetInArg()) + ".asm"
+		fmt.Println(outputFile)
+	} else {
+		lines = openFile(GetInArg())
+		outputFile = path.Dir(GetInArg()) + "/" + strings.Split(path.Base(GetInArg()), ".")[0] + ".asm"
+	}
+	return lines, outputFile
+}
+
+func openFile(file string) []string {
+	readFile, err := os.Open(file)
 
 	if err != nil {
 		fmt.Println(err)
@@ -33,19 +47,26 @@ func OpenFile() []string {
 	return fileLines
 }
 
-func GetPathName() []string {
-	return strings.Split(os.Args[1], "/")
-}
+func openDir() []string {
+	files, err := ioutil.ReadDir(GetInArg())
 
-func GetFilename() string {
-	filePathSlice := GetPathName()
+	res := make([]string, 0)
 
-	inputFilename := filePathSlice[len(filePathSlice)-1]
-	if inputFilename[len(inputFilename)-3:] != ".vm" {
-		color.Red("File should be of format .vm")
-		return ""
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	filename := strings.Split(inputFilename, ".")[0] + ".asm"
-	return filename
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".vm") {
+			fileContent := openFile(GetInArg() + "/" + file.Name())
+			res = append(res, fileContent...)
+			fmt.Println(GetInArg() + "/" + file.Name())
+		}
+	}
+
+	return res
+}
+
+func GetInArg() string {
+	return os.Args[len(os.Args)-1]
 }

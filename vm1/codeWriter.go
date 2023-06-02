@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 	"strings"
 )
 
@@ -10,81 +11,99 @@ var (
 	nextFun   = 1
 )
 
+func Bootstrap() string {
+	bootstrapRecord := CommandRecord{
+		command: "call",
+		arg0:    "Sys.init",
+		arg1:    "0",
+	}
+
+	setupCode := `
+  @256
+  D=A
+  @SP
+  M=D
+  ` + writeCall(bootstrapRecord)
+	return setupCode
+}
+
 func WriteArithmetic(cRecord CommandRecord) string {
 	commands := ""
 
 	switch cRecord.command {
 	case "add":
 		commands = `
-			@SP
-			AM=M-1
-			D=M
-			@SP
-			A=M-1
-			D=M+D
-			M=D
-		`
+    @SP
+    AM=M-1
+    D=M
+    @SP
+    AM=M-1
+    M=M+D
+    @SP
+    M=M+1
+    `
 	case "sub":
 		commands = `
-			@SP
-			AM=M-1
-			D=M
-			@SP
-			A=M-1
-			D=M-D
-			M=D
-		`
+    @SP
+    AM=M-1
+    D=M
+    @SP
+    AM=M-1
+    M=M-D
+    @SP
+    M=M+1
+    `
 	case "neg":
 		commands = `
-			@SP
-			A=M-1
-			M=-M
-		`
+    @SP
+    A=M-1
+    M=-M
+    `
 	case "not":
 		commands = `
-			@SP
-			A=M-1
-			M=!M
-		`
+    @SP
+    A=M-1
+    M=!M
+    `
 	case "and":
 		commands = `
-			@SP
-			AM=M-1
-			D=M
-			@SP
-			A=M-1
-			M=D&M
-		`
+    @SP
+    AM=M-1
+    D=M
+    @SP
+    A=M-1
+    M=D&M
+    `
 	case "or":
 		commands = `
-			@SP
-			AM=M-1
-			D=M
-			@SP
-			A=M-1
-			M=D|M
-		`
+    @SP
+    AM=M-1
+    D=M
+    @SP
+    A=M-1
+    M=D|M
+    `
 	case "eq", "gt", "lt":
 		commands = fmt.Sprintf(`
-			@SP
-			AM=M-1
-			D=M
-			@SP
-			A=M-1
-			D=M-D
-			@eqTrue%d
-			D;%s
-			@SP
-			A=M-1
-			M=0
-			@eqEnd%d
-			0;JMP
-			(eqTrue%d)
-			@SP
-			A=M-1
-			M=-1
-			(eqEnd%d)
-		`, nextLabel, getJumpComparison(cRecord.command), nextLabel, nextLabel, nextLabel)
+      @SP
+      AM=M-1
+      D=M
+      @SP
+      A=M-1
+      D=M-D
+      @eqTrue%d
+      D;%s
+      @SP
+      A=M-1
+      M=0
+      @eqEnd%d
+      0;JMP
+      (eqTrue%d)
+      @SP
+      A=M-1
+      M=-1
+      (eqEnd%d)
+      `, nextLabel, getJumpComparison(cRecord.command), nextLabel, nextLabel, nextLabel)
 		nextLabel++
 	}
 
@@ -97,64 +116,64 @@ func WritePush(cRecord CommandRecord) string {
 	switch cRecord.arg0 {
 	case "constant":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@SP
-			A=M
-			M=D
-			@SP
-			M=M+1
-		`, cRecord.arg1)
+      @%s
+      D=A
+      @SP
+      A=M
+      M=D
+      @SP
+      M=M+1
+      `, cRecord.arg1)
 	case "local", "argument", "this", "that":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@%s
-			A=M+D
-			D=M
-			@SP
-			A=M
-			M=D
-			@SP
-			M=M+1
-		`, cRecord.arg1, getSegmentBase(cRecord.arg0))
+      @%s
+      D=A
+      @%s
+      A=M+D
+      D=M
+      @SP
+      A=M
+      M=D
+      @SP
+      M=M+1
+      `, cRecord.arg1, getSegmentBase(cRecord.arg0))
 
 	case "static":
 		commands = fmt.Sprintf(`
-			@%s.%s
-			D=M
-			@SP
-			A=M
-			M=D
-			@SP
-			M=M+1
-		`, strings.Split(GetFilename(), ".")[0], cRecord.arg1)
+      @%s.%s
+      D=M
+      @SP
+      A=M
+      M=D
+      @SP
+      M=M+1
+      `, strings.Split(path.Base(GetInArg()), ".")[0], cRecord.arg1)
 	case "temp":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@5
-			A=A+D
-			D=M
-			@SP
-			A=M
-			M=D
-			@SP
-			M=M+1
-		`, cRecord.arg1)
+      @%s
+      D=A
+      @5
+      A=A+D
+      D=M
+      @SP
+      A=M
+      M=D
+      @SP
+      M=M+1
+      `, cRecord.arg1)
 	case "pointer":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@3
-			A=A+D
-			D=M
-			@SP
-			A=M
-			M=D
-			@SP
-			M=M+1
-		`, cRecord.arg1)
+      @%s
+      D=A
+      @3
+      A=A+D
+      D=M
+      @SP
+      A=M
+      M=D
+      @SP
+      M=M+1
+      `, cRecord.arg1)
 	}
 
 	return "// " + cRecord.command + " " + cRecord.arg0 + " " + cRecord.arg1 + "\n" + commands
@@ -166,57 +185,57 @@ func WritePop(cRecord CommandRecord) string {
 	switch cRecord.arg0 {
 	case "local", "argument", "this", "that":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@%s
-			D=M+D
-			@R13
-			M=D
-			@SP
-			A=M-1
-			D=M
-			@R13
-			A=M
-			M=D
-		`, cRecord.arg1, getSegmentBase(cRecord.arg0))
+      @%s
+      D=A
+      @%s
+      D=M+D
+      @R13
+      M=D
+      @SP
+      AM=M-1
+      D=M
+      @R13
+      A=M
+      M=D
+      `, cRecord.arg1, getSegmentBase(cRecord.arg0))
 	case "static":
 		commands = fmt.Sprintf(`
-			@SP
-			A=M-1
-			D=M
-			@%s.%s
-			M=D
-		`, strings.Split(GetFilename(), ".")[0], cRecord.arg1)
+      @SP
+      AM=M-1
+      D=M
+      @%s.%s
+      M=D
+      `, strings.Split(path.Base(GetInArg()), ".")[0], cRecord.arg1)
 	case "temp":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@5
-			D=A+D
-			@R13
-			M=D
-			@SP
-			A=M-1
-			D=M
-			@R13
-			A=M
-			M=D
-		`, cRecord.arg1)
+      @%s
+      D=A
+      @5
+      D=A+D
+      @R13
+      M=D
+      @SP
+      AM=M-1
+      D=M
+      @R13
+      A=M
+      M=D
+      `, cRecord.arg1)
 	case "pointer":
 		commands = fmt.Sprintf(`
-			@%s
-			D=A
-			@3
-			D=A+D
-			@R13
-			M=D
-			@SP
-			A=M-1
-			D=M
-			@R13
-			A=M
-			M=D
-		`, cRecord.arg1)
+      @%s
+      D=A
+      @3
+      D=A+D
+      @R13
+      M=D
+      @SP
+      AM=M-1
+      D=M
+      @R13
+      A=M
+      M=D
+      `, cRecord.arg1)
 	}
 
 	return "// " + cRecord.command + " " + cRecord.arg0 + " " + cRecord.arg1 + "\n" + commands
@@ -241,7 +260,7 @@ func writeIfGoto(cRecord CommandRecord) string {
     AM=M-1
     D=M
     @%s
-    D;JMP
+    D;JNE
     `, cRecord.arg1)
 }
 
@@ -389,6 +408,8 @@ func Translate(cRecord CommandRecord) string {
 		return writeFun(cRecord)
 	case C_RETURN:
 		return writeReturn(cRecord)
+	case C_IF_GOTO:
+		return writeIfGoto(cRecord)
 	default:
 		return ""
 	}
