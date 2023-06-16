@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -14,7 +15,9 @@ func main() {
 	}
 	defer outputFile.Close()
 
-	outputFile.WriteString(Bootstrap())
+	if !strings.HasSuffix(GetInArg(), ".vm") {
+		outputFile.WriteString(Bootstrap())
+	}
 
 	for _, line := range lines {
 		lineWithoutComments := ParseCommand(line)

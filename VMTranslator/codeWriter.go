@@ -37,10 +37,8 @@ func WriteArithmetic(cRecord CommandRecord) string {
     AM=M-1
     D=M
     @SP
-    AM=M-1
+    A=M-1
     M=M+D
-    @SP
-    M=M+1
     `
 	case "sub":
 		commands = `
@@ -48,10 +46,8 @@ func WriteArithmetic(cRecord CommandRecord) string {
     AM=M-1
     D=M
     @SP
-    AM=M-1
+    A=M-1
     M=M-D
-    @SP
-    M=M+1
     `
 	case "neg":
 		commands = `
@@ -91,19 +87,14 @@ func WriteArithmetic(cRecord CommandRecord) string {
       @SP
       A=M-1
       D=M-D
+      M=-1
       @eqTrue%d
       D;%s
       @SP
       A=M-1
       M=0
-      @eqEnd%d
-      0;JMP
       (eqTrue%d)
-      @SP
-      A=M-1
-      M=-1
-      (eqEnd%d)
-      `, nextLabel, getJumpComparison(cRecord.command), nextLabel, nextLabel, nextLabel)
+      `, nextLabel, getJumpComparison(cRecord.command), nextLabel)
 		nextLabel++
 	}
 
@@ -255,6 +246,7 @@ func writeGoto(cRecord CommandRecord) string {
 }
 
 func writeIfGoto(cRecord CommandRecord) string {
+	fmt.Println(cRecord)
 	return fmt.Sprintf(`
     @SP
     AM=M-1
@@ -280,12 +272,12 @@ func writeCall(cRecord CommandRecord) string {
     %s
     %s
     %s
-    @%s
-    D=A
-    @5
-    D=A+D
     @SP
-    D=M-D
+    D=M
+    @5
+    D=D-A
+    @%s
+    D=D-A
     @ARG
     M=D
     @SP
@@ -295,7 +287,7 @@ func writeCall(cRecord CommandRecord) string {
     @%s
     0;JMP
     (%sret%d)
-    `, funName, nextFun, pushIntoStack("LCL"), pushIntoStack("ARG"), pushIntoStack("THIS"), pushIntoStack("THAT"), nArgs, funName, funName, nextFun)
+    `, funName, nextFun, pushSegIntoStack("LCL"), pushSegIntoStack("ARG"), pushSegIntoStack("THIS"), pushSegIntoStack("THAT"), nArgs, funName, funName, nextFun)
 
 	nextFun++
 
@@ -311,7 +303,7 @@ func writeFun(cRecord CommandRecord) string {
     `, funName)
 
 	for range nArgs {
-		res += pushIntoStack("0")
+		res += pushToStack("0")
 	}
 
 	return res
@@ -336,38 +328,44 @@ func writeReturn(cRecord CommandRecord) string {
     @SP
     M=D
     @R13
-    A=M-1
+    AM=M-1
     D=M
     @THAT
     M=D
     @R13
-    D=M
-    @2
-    A=D-A
+    AM=M-1
     D=M
     @THIS
     M=D
     @R13
-    D=M
-    @3
-    A=D-A
+    AM=M-1
     D=M
     @ARG
     M=D
     @R13
-    D=M
-    @4
-    A=D-A
+    AM=M-1
     D=M
     @LCL
     M=D
     @retAddr
     A=M
     0;JMP
-    `, popFromStack("ARG"))
+    `, popSegFromStack("ARG"))
 }
 
-func pushIntoStack(seg string) string {
+func pushToStack(item string) string {
+	return fmt.Sprintf(`
+    @%s
+    D=A
+    @SP
+    A=M
+    M=D
+    @SP
+    M=M+1
+    `, item)
+}
+
+func pushSegIntoStack(seg string) string {
 	return fmt.Sprintf(`
     @%s
     D=M
@@ -379,7 +377,7 @@ func pushIntoStack(seg string) string {
     `, seg)
 }
 
-func popFromStack(seg string) string {
+func popSegFromStack(seg string) string {
 	return fmt.Sprintf(`
     @SP
     AM=M-1
@@ -402,14 +400,14 @@ func Translate(cRecord CommandRecord) string {
 		return writeLabel(cRecord)
 	case C_GOTO:
 		return writeGoto(cRecord)
+	case C_IF_GOTO:
+		return writeIfGoto(cRecord)
 	case C_CALL:
 		return writeCall(cRecord)
 	case C_FUNCTION:
 		return writeFun(cRecord)
 	case C_RETURN:
 		return writeReturn(cRecord)
-	case C_IF_GOTO:
-		return writeIfGoto(cRecord)
 	default:
 		return ""
 	}
