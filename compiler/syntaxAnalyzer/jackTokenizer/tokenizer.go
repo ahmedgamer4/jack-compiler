@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type TokenType int
@@ -148,56 +149,71 @@ func OpenFile() {
 	}
 }
 
-func handleTokens(currenLine string) {
+func handleTokens(currentLine string) {
 	tempToken := ""
 
-	for i, letter := range currenLine {
+	for i, letter := range currentLine {
 		tempToken += string(letter)
 		pos = i
-		if letter == ' ' {
-			continue
+		if letter == ' ' && !inString {
+			currentToken = tempToken
+			tempToken = ""
 		} else {
-			if _, ok := keywords[tempToken]; ok {
-				currentToken = tempToken
-				tempToken = ""
-			} else if letter == '{' {
-				if isCurrly {
-					fmt.Println("Missing } on pos ", lineNumber, ", ", pos)
-				} else {
-					isCurrly = true
-				}
-			} else if letter == '[' {
-				if isBracket {
-					fmt.Println("Missing ] on pos ", lineNumber, ", ", pos)
-				} else {
-					isBracket = true
-				}
-			} else if _, ok := symbols[string(letter)]; ok {
-				currentToken = string(letter)
-				tempToken = ""
-			} else if letter == '}' {
-				currentToken = string(letter)
+			if !inString {
+				if _, ok := keywords[tempToken]; ok {
+					currentToken = tempToken
+					tempToken = ""
+				} else if _, ok := symbols[string(letter)]; ok {
+					currentToken = string(letter)
+					tempToken = ""
+				} else if letter == '{' {
+					if isCurrly {
+						fmt.Println("Missing } on pos ", lineNumber, ", ", pos)
+					} else {
+						isCurrly = true
+					}
+				} else if letter == '[' {
+					if isBracket {
+						fmt.Println("Missing ] on pos ", lineNumber, ", ", pos)
+					} else {
+						isBracket = true
+					}
+				} else if unicode.IsDigit(letter) {
+					if i < len(currentLine)-1 && !unicode.IsDigit(rune(currentLine[i+1])) {
+						currentToken = tempToken
+						tempToken = ""
+					}
+				} else if unicode.IsLetter(letter) || letter == '_' {
+					if i < len(currentLine)-1 && (!unicode.IsLetter(rune(currentLine[i+1])) && !unicode.IsDigit(rune(currentLine[i+1])) && currentLine[i+1] != '_') {
+						currentToken = tempToken
+						tempToken = ""
+					}
+				} else if letter == '}' {
+					currentToken = string(letter)
+					tempToken = ""
 
-				if !isCurrly {
-					fmt.Println("Missing { on pos ", lineNumber, ", ", pos)
-				} else {
-					isCurrly = false
-				}
-			} else if letter == ']' {
-				currentToken = string(letter)
+					if !isCurrly {
+						fmt.Println("Missing { on pos ", lineNumber, ", ", pos)
+					} else {
+						isCurrly = false
+					}
+				} else if letter == ']' {
+					currentToken = string(letter)
+					tempToken = ""
 
-				if !isBracket {
-					fmt.Println("Missing [ on pos ", lineNumber, ", ", pos)
-				} else {
-					isBracket = false
+					if !isBracket {
+						fmt.Println("Missing [ on pos ", lineNumber, ", ", pos)
+					} else {
+						isBracket = false
+					}
 				}
-			} else if letter == '*' && currenLine[i+1] == '/' {
+			} else if letter == '*' && i < len(currentLine)-1 && currentLine[i+1] == '/' {
 				if !blockComment {
 					fmt.Println("Missing /* on position ", lineNumber, ", ", pos)
 				} else {
 					blockComment = false
 				}
-			} else if letter == '/' && currenLine[i+1] == '*' {
+			} else if letter == '/' && i < len(currentLine)-1 && currentLine[i+1] == '*' {
 				if blockComment {
 					fmt.Println("Missing */ on position ", lineNumber, ", ", pos)
 				} else {
@@ -207,21 +223,22 @@ func handleTokens(currenLine string) {
 				if inString {
 					inString = false
 					currentToken = "\"" + tempToken + "\""
+					tempToken = ""
 				} else {
 					inString = true
 				}
 			} else if string(letter) == "\n" && inString {
-				fmt.Println("Missing \" in pos ", lineNumber, ", ", pos)
+				fmt.Println("Missing \" in position ", lineNumber, ", ", pos)
 			} else {
-				tempToken += string(letter)
+				fmt.Println("Invalid input character on position ", lineNumber, ", ", pos)
 			}
 		}
 	}
 }
 
-func advance() {
-
+func advance() bool {
 	if bfr.Scan() {
+		lineNumber++
 		currenLine = bfr.Text()
 
 		if strings.HasPrefix(currenLine, "//") {
@@ -236,9 +253,9 @@ func advance() {
 
 		handleTokens(currenLine)
 	} else {
-		return
+		return false
 	}
-	lineNumber++
+	return true
 }
 
 func isValidParentheses(parens string) bool {
