@@ -3,6 +3,7 @@ package jacktokenizer
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -44,17 +45,18 @@ const (
 const ()
 
 var (
-	lineNumber   int
-	pos          int
-	bfr          *bufio.Scanner
-	currenLine   string
-	currentToken string
+	lineNumber       int
+	pos              int
+	bfr              *bufio.Scanner
+	currenLine       string
+	currentToken     string
+	currentTokenList []string
 
 	tokens = map[string]TokenType{
 		"keyword": KEYWORD,
 	}
 
-	blockComment, inString, isCurrly, isBracket bool // These are the parser state
+	inBlockComment, inString, inCurrly, inBracket bool // These are the parser state
 
 	keywords = map[string]TokenType{
 		"class":       CLASS_METHOD,
@@ -101,7 +103,11 @@ var (
 	}
 )
 
-func ReturnCurrentToken() string {
+func GetCurrentTokens() []string {
+	return currentTokenList
+}
+
+func GetCurrentToken() string {
 	return currentToken
 }
 
@@ -142,8 +148,6 @@ func OpenFile() {
 		file, err := os.Open(pathName)
 		handleError(err)
 
-		defer file.Close()
-
 		bfr = bufio.NewScanner(file)
 		bfr.Split(bufio.ScanLines)
 	}
@@ -151,32 +155,76 @@ func OpenFile() {
 
 func handleTokens(currentLine string) {
 	tempToken := ""
+	currentTokenList = make([]string, 0)
+	inLineComment := false
 
 	for i, letter := range currentLine {
 		tempToken += string(letter)
 		pos = i
+
+		if letter == '"' {
+			if inString {
+				inString = false
+				currentToken = tempToken
+				tempToken = ""
+			} else {
+				inString = true
+			}
+		}
 		if letter == ' ' && !inString {
 			currentToken = tempToken
 			tempToken = ""
 		} else {
+			if letter == '/' && i < len(currentLine)-1 && currentLine[i+1] == '/' {
+				inLineComment = true
+			}
+			if inLineComment {
+				tempToken = ""
+				continue
+			}
+			if letter == '*' && i < len(currentLine)-1 && currentLine[i+1] == '/' {
+				tempToken = ""
+				if !inBlockComment {
+					fmt.Println("Missing /* on position ", lineNumber, ", ", pos)
+				} else {
+					inBlockComment = false
+					continue
+				}
+			} else if letter == '/' && i < len(currentLine)-1 && currentLine[i+1] == '*' {
+				tempToken = ""
+				if inBlockComment {
+					fmt.Println("Missing */ on position ", lineNumber, ", ", pos)
+					tempToken = ""
+				} else {
+					inBlockComment = true
+				}
+			} else if letter == '/' && len(currentLine) > 1 && currentLine[i-1] == '*' {
+				tempToken = ""
+				inBlockComment = false
+			}
+
+			if inBlockComment {
+				tempToken = ""
+				continue
+			}
 			if !inString {
 				if _, ok := keywords[tempToken]; ok {
 					currentToken = tempToken
 					tempToken = ""
-				} else if _, ok := symbols[string(letter)]; ok {
-					currentToken = string(letter)
+				} else if _, ok := symbols[tempToken]; ok {
+					currentToken = tempToken
 					tempToken = ""
 				} else if letter == '{' {
-					if isCurrly {
+					if inCurrly {
 						fmt.Println("Missing } on pos ", lineNumber, ", ", pos)
 					} else {
-						isCurrly = true
+						inCurrly = true
 					}
 				} else if letter == '[' {
-					if isBracket {
+					if inBracket {
 						fmt.Println("Missing ] on pos ", lineNumber, ", ", pos)
 					} else {
-						isBracket = true
+						inBracket = true
 					}
 				} else if unicode.IsDigit(letter) {
 					if i < len(currentLine)-1 && !unicode.IsDigit(rune(currentLine[i+1])) {
@@ -192,54 +240,35 @@ func handleTokens(currentLine string) {
 					currentToken = string(letter)
 					tempToken = ""
 
-					if !isCurrly {
+					if !inCurrly {
 						fmt.Println("Missing { on pos ", lineNumber, ", ", pos)
 					} else {
-						isCurrly = false
+						inCurrly = false
 					}
 				} else if letter == ']' {
 					currentToken = string(letter)
 					tempToken = ""
 
-					if !isBracket {
+					if !inBracket {
 						fmt.Println("Missing [ on pos ", lineNumber, ", ", pos)
 					} else {
-						isBracket = false
+						inBracket = false
 					}
-				}
-			} else if letter == '*' && i < len(currentLine)-1 && currentLine[i+1] == '/' {
-				if !blockComment {
-					fmt.Println("Missing /* on position ", lineNumber, ", ", pos)
-				} else {
-					blockComment = false
-				}
-			} else if letter == '/' && i < len(currentLine)-1 && currentLine[i+1] == '*' {
-				if blockComment {
-					fmt.Println("Missing */ on position ", lineNumber, ", ", pos)
-				} else {
-					blockComment = true
-				}
-			} else if letter == '"' {
-				if inString {
-					inString = false
-					currentToken = "\"" + tempToken + "\""
-					tempToken = ""
-				} else {
-					inString = true
 				}
 			} else if string(letter) == "\n" && inString {
 				fmt.Println("Missing \" in position ", lineNumber, ", ", pos)
-			} else {
-				fmt.Println("Invalid input character on position ", lineNumber, ", ", pos)
 			}
 		}
+		currentTokenList = append(currentTokenList, currentToken)
+		currentToken = ""
 	}
 }
 
-func advance() bool {
+func Advance() bool {
 	if bfr.Scan() {
 		lineNumber++
 		currenLine = bfr.Text()
+		log.Println(currenLine)
 
 		if strings.HasPrefix(currenLine, "//") {
 			bfr.Scan()
