@@ -3,43 +3,10 @@ package jacktokenizer
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"unicode"
-)
-
-type TokenType int
-
-const (
-	KEYWORD TokenType = iota
-	SYMBOL
-	IDENTIFIER
-	INT_CONST
-	STRING_CONST
-)
-
-const (
-	CLASS_METHOD TokenType = iota
-	FUNCTION
-	CONSTRUCTOR
-	INT
-	VAR
-	BOOLEAN
-	CHAR
-	VOID
-	STATIC
-	FIELD
-	LET
-	IF
-	ELSE
-	WHILE
-	RETURN
-	TRUE
-	FALSE
-	NULL
-	THIS
 )
 
 const ()
@@ -52,32 +19,30 @@ var (
 	currentToken     string
 	currentTokenList []string
 
-	tokens = map[string]TokenType{
-		"keyword": KEYWORD,
-	}
+	file *os.File
 
 	inBlockComment, inString, inCurrly, inBracket bool // These are the parser state
 
-	keywords = map[string]TokenType{
-		"class":       CLASS_METHOD,
-		"function":    FUNCTION,
-		"constructor": CONSTRUCTOR,
-		"int":         INT,
-		"var":         VAR,
-		"boolean":     BOOLEAN,
-		"char":        CHAR,
-		"void":        VOID,
-		"static":      STATIC,
-		"field":       FIELD,
-		"let":         LET,
-		"if":          IF,
-		"else":        ELSE,
-		"while":       WHILE,
-		"return":      RETURN,
-		"true":        TRUE,
-		"false":       FALSE,
-		"null":        NULL,
-		"this":        THIS,
+	keywords = map[string]int{
+		"class":       0,
+		"function":    0,
+		"constructor": 0,
+		"int":         0,
+		"var":         0,
+		"boolean":     0,
+		"char":        0,
+		"void":        0,
+		"static":      0,
+		"field":       0,
+		"let":         0,
+		"if":          0,
+		"else":        0,
+		"while":       0,
+		"return":      0,
+		"true":        0,
+		"false":       0,
+		"null":        0,
+		"this":        0,
 	}
 
 	symbols = map[string]int{
@@ -115,37 +80,28 @@ func GetPos() (int, int) {
 	return lineNumber, pos
 }
 
-func getTokenType(token string) TokenType {
+func GetTokenType(token string) string {
 	if _, ok := keywords[token]; ok {
-		return KEYWORD
+		return "keyword"
 	} else if _, ok := symbols[token]; ok {
-		return SYMBOL
+		return "symbol"
 	} else if _, err := strconv.Atoi(token); err == nil {
-		return INT_CONST
+		return "int"
 	} else if strings.HasPrefix(token, "\"") {
-		return STRING_CONST
+		return "string"
 	} else {
-		return IDENTIFIER
+		return "identifier"
 	}
 }
 
-func OpenFile() {
+func OpenFile(pathName string) {
 	lineNumber = 1
-	pathName := os.Args[1]
 
 	inputInfo, err := os.Stat(pathName)
 	handleError(err)
 
-	if inputInfo.IsDir() {
-		dir, err := os.ReadDir(pathName)
-		handleError(err)
-
-		for _, file := range dir {
-			fmt.Println(file)
-		}
-
-	} else {
-		file, err := os.Open(pathName)
+	if !inputInfo.IsDir() {
+		file, err = os.Open(pathName)
 		handleError(err)
 
 		bfr = bufio.NewScanner(file)
@@ -268,7 +224,6 @@ func Advance() bool {
 	if bfr.Scan() {
 		lineNumber++
 		currenLine = bfr.Text()
-		log.Println(currenLine)
 
 		if strings.HasPrefix(currenLine, "//") {
 			bfr.Scan()
@@ -302,6 +257,10 @@ func isValidParentheses(parens string) bool {
 	}
 
 	return n == 0
+}
+
+func CloseFile() {
+	defer file.Close()
 }
 
 func handleError(err error) {
