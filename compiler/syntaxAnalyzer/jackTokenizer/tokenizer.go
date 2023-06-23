@@ -9,8 +9,6 @@ import (
 	"unicode"
 )
 
-const ()
-
 var (
 	lineNumber       int
 	pos              int
@@ -72,10 +70,6 @@ func GetCurrentTokens() []string {
 	return currentTokenList
 }
 
-func GetCurrentToken() string {
-	return currentToken
-}
-
 func GetPos() (int, int) {
 	return lineNumber, pos
 }
@@ -86,9 +80,9 @@ func GetTokenType(token string) string {
 	} else if _, ok := symbols[token]; ok {
 		return "symbol"
 	} else if _, err := strconv.Atoi(token); err == nil {
-		return "int"
+		return "intgerConstant"
 	} else if strings.HasPrefix(token, "\"") {
-		return "string"
+		return "stringConstant"
 	} else {
 		return "identifier"
 	}

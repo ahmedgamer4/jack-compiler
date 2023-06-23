@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
 )
@@ -18,7 +20,9 @@ func main() {
 	// 	}
 	// }
 	// jacktokenizer.CloseFile()
+	start := time.Now()
 	testTokenizer()
+	log.Println(time.Since(start))
 }
 
 func testTokenizer() {
@@ -27,6 +31,14 @@ func testTokenizer() {
 		c := jacktokenizer.GetCurrentTokens()
 		for _, item := range c {
 			if !(item == " " || item == "") {
+				if item == "&" {
+					item = "&amp;"
+				} else if item == "<" {
+					item = "&lt;"
+				} else if item == ">" {
+					item = "&gt;"
+				}
+
 				opened := "<" + jacktokenizer.GetTokenType(item) + ">"
 				closed := "<" + jacktokenizer.GetTokenType(item) + ">"
 
