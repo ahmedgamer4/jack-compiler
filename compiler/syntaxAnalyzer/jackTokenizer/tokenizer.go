@@ -166,13 +166,13 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 				} else if letter == '{' {
 					if inCurrly {
-						fmt.Println("Missing } on pos ", lineNumber, ", ", pos)
+						fmt.Println("Missing } on line", lineNumber)
 					} else {
 						inCurrly = true
 					}
 				} else if letter == '[' {
 					if inBracket {
-						fmt.Println("Missing ] on pos ", lineNumber, ", ", pos)
+						fmt.Println("Missing ] on line", lineNumber)
 					} else {
 						inBracket = true
 					}
@@ -191,7 +191,7 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 
 					if !inCurrly {
-						fmt.Println("Missing { on pos ", lineNumber, ", ", pos)
+						fmt.Println("Missing { on line", lineNumber)
 					} else {
 						inCurrly = false
 					}
@@ -200,13 +200,13 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 
 					if !inBracket {
-						fmt.Println("Missing [ on pos ", lineNumber, ", ", pos)
+						fmt.Println("Missing [ on line", lineNumber)
 					} else {
 						inBracket = false
 					}
 				}
 			} else if string(letter) == "\n" && inString {
-				fmt.Println("Missing \" in position ", lineNumber, ", ", pos)
+				fmt.Println("Missing \" in line", lineNumber)
 			}
 		}
 		currentTokenList = append(currentTokenList, currentToken)

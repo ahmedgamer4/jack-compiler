@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
@@ -30,6 +31,7 @@ func testTokenizer() {
 	for jacktokenizer.Advance() {
 		c := jacktokenizer.GetCurrentTokens()
 		for _, item := range c {
+			item = strings.TrimSpace(item)
 			if !(item == " " || item == "") {
 				if item == "&" {
 					item = "&amp;"
