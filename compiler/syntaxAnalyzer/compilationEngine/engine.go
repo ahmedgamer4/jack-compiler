@@ -97,8 +97,6 @@ func handleTypes(isFunction bool) {
 		eat("char", "keyword")
 	} else if currentToken == "boolean" {
 		eat("boolean", "keyword")
-	} else if currentToken == "char" {
-		eat("char", "keyword")
 	} else {
 		identifier() // If you have a custom type this will make sense
 	}
@@ -109,8 +107,8 @@ func compileClass() {
 	eat("class", "keyword")
 	eat("className", "identifier")
 	eat("{", "symbol")
-	// TODO: Add a way to handle class var dec and subroutine
 	compileClassVarDec()
+	compileSubroutineDec()
 	eat("}", "symbol")
 	appendClose("class")
 }
@@ -140,7 +138,7 @@ func compileClassVarDec() {
 	appendClose("classVarDec")
 }
 
-func compileSubroutine() {
+func compileSubroutineDec() {
 	appendOpen("subroutine")
 	if currentToken == "function" {
 		eat("function", "keyword")
@@ -316,7 +314,7 @@ func compileExpression() {
 		compileTerm()
 	}
 
-	appendOpen("expression")
+	appendClose("expression")
 }
 
 func compileTerm() {
@@ -325,6 +323,9 @@ func compileTerm() {
 	switch jacktokenizer.GetTokenType(currentToken) {
 	case "integerConstant":
 		append(currentToken, "integerConstant")
+		nextToken()
+	case "stringConstant":
+		append(currentToken, "stringConstant")
 		nextToken()
 	case "keyword":
 		if currentToken == "false" {
@@ -342,10 +343,17 @@ func compileTerm() {
 			if currentToken == "." {
 				eat(".", "symbol")
 				identifier()
+				eat("(", "symbol")
+				compileExpressionList()
+				eat(")", "symbol")
 			} else if currentToken == "[" {
 				eat("[", "symbol")
 				compileExpression()
 				eat("]", "symbol")
+			} else if currentToken == "(" {
+				eat("(", "symbol")
+				compileExpressionList()
+				eat(")", "symbol")
 			}
 		}
 	case "symbol":
@@ -353,14 +361,27 @@ func compileTerm() {
 			eat("~", "symbol")
 		} else if currentToken == "-" {
 			eat("-", "symbol")
+		} else if currentToken == "(" {
+
 		} else {
 			handleSyntaxError("Expected ~ | - on line", jacktokenizer.GetCurrentLineNumber())
 		}
+		compileTerm()
 	}
 
 	appendClose("term")
 }
 
 func compileExpressionList() {
-
+	appendOpen("expressionList")
+	for i < len(input) {
+		if currentToken == ")" {
+			break
+		}
+		compileExpression()
+		if currentToken == "," {
+			eat(",", "symbol")
+		}
+	}
+	appendClose("expressionList")
 }
