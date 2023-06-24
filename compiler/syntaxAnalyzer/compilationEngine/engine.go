@@ -69,7 +69,7 @@ func eat(str string, tokenType string) {
 			return
 		}
 	}
-	fmt.Println("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLine())
+	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLine())
 }
 
 func identifier() {
@@ -78,7 +78,7 @@ func identifier() {
 		append(tag, currentToken)
 		return
 	}
-	fmt.Println("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLine())
+	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLine())
 }
 
 func handleSyntaxError(message ...any) {
@@ -86,25 +86,12 @@ func handleSyntaxError(message ...any) {
 	syntaxError = true
 }
 
-func compileClass() {
-	eat("class", "keyword")
-	eat("className", "identifier")
-	eat("{", "symbol")
-	// TODO: Add a way to handle class var dec and subroutine
-	eat("}", "symbol")
-}
-
-func compileClassVarDec() {
-	appnedOpen("classVarDec")
-	if currentToken == "static" {
-		eat("static", "keyword")
-	} else if currentToken == "field" {
-		eat("field", "keyword")
-	} else {
-		fmt.Println("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLine())
-	}
-
-	if currentToken == "int" {
+func handleTypes(isFunction bool) {
+	if isFunction {
+		if currentToken == "void" {
+			eat("void", "keyword")
+		}
+	} else if currentToken == "int" {
 		eat("int", "keyword")
 	} else if currentToken == "char" {
 		eat("char", "keyword")
@@ -115,7 +102,30 @@ func compileClassVarDec() {
 	} else {
 		identifier() // If you have a custom type this will make sense
 	}
+}
 
+func compileClass() {
+	appnedOpen("class")
+	eat("class", "keyword")
+	eat("className", "identifier")
+	eat("{", "symbol")
+	// TODO: Add a way to handle class var dec and subroutine
+	compileClassVarDec()
+	eat("}", "symbol")
+	appnedClose("class")
+}
+
+func compileClassVarDec() {
+	appnedOpen("classVarDec")
+	if currentToken == "static" {
+		eat("static", "keyword")
+	} else if currentToken == "field" {
+		eat("field", "keyword")
+	} else {
+		handleSyntaxError("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLine())
+	}
+
+	handleTypes(false)
 	identifier()
 	nextToken()
 	for i < len(input) {
@@ -124,8 +134,46 @@ func compileClassVarDec() {
 		} else if currentToken == ";" {
 			eat(";", "symbol")
 		} else {
-			handleSyntaxError("expected symbol , or ; on line", jacktokenizer.GetCurrentLine())
+			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLine())
 		}
 	}
 	appnedClose("classVarDec")
+}
+
+func compileSubroutine() {
+	appnedOpen("subroutine")
+	if currentToken == "function" {
+		eat("function", "keyword")
+	} else if currentToken == "method" {
+		eat("method", "keyword")
+	} else if currentToken == "constructor" {
+		eat("constructor", "keyword")
+	} else {
+		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLine())
+	}
+
+	handleTypes(true)
+	identifier()
+
+	eat("(", "symbol")
+	compileParamterList()
+	eat(")", "symbol")
+	eat("{", "symbol")
+	compileSubroutineBody()
+	eat("}", "symbol")
+	appnedClose("subroutine")
+}
+
+func compileParamterList() {
+	for currentToken != ")" {
+		handleTypes(false)
+		identifier()
+		if currentToken == "," {
+			eat(",", "symbol")
+		}
+	}
+}
+
+func compileSubroutineBody() {
+	return
 }
