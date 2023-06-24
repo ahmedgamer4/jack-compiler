@@ -29,7 +29,7 @@ func main() {
 func testTokenizer() {
 	jacktokenizer.OpenFile(os.Args[1])
 	for jacktokenizer.Advance() {
-		c := jacktokenizer.GetCurrentTokens()
+		c := jacktokenizer.GetCurrentTokensList()
 		for _, item := range c {
 			item = strings.TrimSpace(item)
 			if !(item == " " || item == "") {

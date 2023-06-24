@@ -36,7 +36,7 @@ func append(tag string, content string) {
 
 func advance() {
 	jacktokenizer.Advance()
-	input = jacktokenizer.GetCurrentTokens()
+	input = jacktokenizer.GetCurrentTokensList()
 }
 
 func nextToken() {
@@ -52,7 +52,7 @@ func appendOpen(tag string) {
 	output += "<" + tag + ">\n"
 }
 
-func appnedClose(tag string) {
+func appendClose(tag string) {
 	output += "</" + tag + ">\n"
 }
 
@@ -69,7 +69,7 @@ func eat(str string, tokenType string) {
 			return
 		}
 	}
-	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLine())
+	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLineNumber())
 }
 
 func identifier() {
@@ -78,7 +78,7 @@ func identifier() {
 		append(tag, currentToken)
 		return
 	}
-	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLine())
+	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber())
 }
 
 func handleSyntaxError(message ...any) {
@@ -112,7 +112,7 @@ func compileClass() {
 	// TODO: Add a way to handle class var dec and subroutine
 	compileClassVarDec()
 	eat("}", "symbol")
-	appnedClose("class")
+	appendClose("class")
 }
 
 func compileClassVarDec() {
@@ -122,7 +122,7 @@ func compileClassVarDec() {
 	} else if currentToken == "field" {
 		eat("field", "keyword")
 	} else {
-		handleSyntaxError("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLine())
+		handleSyntaxError("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
 	handleTypes(false)
@@ -134,10 +134,10 @@ func compileClassVarDec() {
 			eat(";", "symbol")
 			break
 		} else {
-			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLine())
+			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	}
-	appnedClose("classVarDec")
+	appendClose("classVarDec")
 }
 
 func compileSubroutine() {
@@ -149,7 +149,7 @@ func compileSubroutine() {
 	} else if currentToken == "constructor" {
 		eat("constructor", "keyword")
 	} else {
-		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLine())
+		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
 	handleTypes(true)
@@ -158,10 +158,8 @@ func compileSubroutine() {
 	eat("(", "symbol")
 	compileParamterList()
 	eat(")", "symbol")
-	eat("{", "symbol")
 	compileSubroutineBody()
-	eat("}", "symbol")
-	appnedClose("subroutine")
+	appendClose("subroutine")
 }
 
 func compileParamterList() {
@@ -175,30 +173,194 @@ func compileParamterList() {
 }
 
 func compileSubroutineBody() {
-	return
+	appendOpen("subroutineBody")
+	eat("{", "symbol")
+	compileVarDec()
+	compileStatements()
+	eat("}", "symbol")
+	appendClose("subroutineBody")
 }
 
 func compileVarDec() {
-	appendOpen("varDec")
 	if currentToken == "var" {
+		appendOpen("varDec")
 		eat("var", "keyword")
-	} else {
-		handleSyntaxError("Expected keyword var on line", jacktokenizer.GetCurrentLine())
+		handleTypes(false)
+
+		for i < len(input) {
+			identifier()
+			if currentToken == "," {
+				eat(",", "symbol")
+			} else if currentToken == ";" {
+				eat(";", "symbol")
+				break
+			} else {
+				handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
+			}
+		}
+
+		appendClose("varDec")
+	}
+}
+
+func compileStatements() {
+	appendOpen("statements")
+	switch currentToken {
+	case "let":
+		compileLet()
+	case "if":
+		compileIf()
+	case "while":
+		compileWhile()
+	case "do":
+		compileDo()
+	case "return":
+		compileReturn()
+	case "}":
+		return
+	default:
+		handleSyntaxError("Expected statment (let | if | while | do | return)")
+	}
+	appendClose("statements")
+}
+
+func compileLet() {
+	if currentToken == "let" {
+		appendOpen("letStatement")
+		eat("let", "keyword")
+		identifier()
+		eat("=", "symbol")
+		compileExpression()
+		eat(";", "symbol")
+		appendClose("letStatement")
+	}
+}
+
+func compileIf() {
+	if currentToken == "if" {
+		appendOpen("ifStatement")
+		eat("if", "keyword")
+		eat("(", "symbol")
+		compileExpression()
+		eat(")", "symbol")
+		eat("{", "symbol")
+		compileStatements()
+		eat("}", "symbol")
+		appendClose("ifStatement")
+	}
+}
+
+func compileWhile() {
+	if currentToken == "while" {
+		appendOpen("whileStatement")
+		eat("while", "keyword")
+		eat("(", "symbol")
+		compileExpression()
+		eat(")", "symbol")
+		eat("{", "symbol")
+		compileStatements()
+		eat("}", "symbol")
+		appendClose("whileStatement")
+	}
+}
+
+func compileDo() {
+	if currentToken == "do" {
+		appendOpen("doStatement")
+		eat("do", "keyword")
+		identifier()
+		eat("(", "symbol")
+		compileExpressionList()
+		eat(")", "symbol")
+		eat(";", "symbol")
+		appendClose("doStatement")
+	}
+}
+
+func compileReturn() {
+	if currentToken == "return" {
+		appendOpen("returnStatement")
+		eat("return", "keyword")
+		compileExpression()
+		eat(";", "symbol")
+		appendClose("returnStatement")
+	}
+}
+
+func compileExpression() {
+	appendOpen("expression")
+	compileTerm()
+
+	if jacktokenizer.GetTokenType(currentToken) == "symbol" {
+		switch currentToken {
+		case "+":
+			eat("+", "symbol")
+		case "-":
+			eat("-", "symbol")
+		case "/":
+			eat("/", "symbol")
+		case "*":
+			eat("*", "symbol")
+		case "&":
+			eat("&", "symbol")
+		case "|":
+			eat("|", "symbol")
+		case "<":
+			eat("<", "symbol")
+		case ">":
+			eat(">", "symbol")
+		case "=":
+			eat("=", "symbol")
+		}
+
+		compileTerm()
 	}
 
-	handleTypes(false)
+	appendOpen("expression")
+}
 
-	for i < len(input) {
+func compileTerm() {
+	appendOpen("term")
+
+	switch jacktokenizer.GetTokenType(currentToken) {
+	case "integerConstant":
+		append(currentToken, "integerConstant")
+		nextToken()
+	case "keyword":
+		if currentToken == "false" {
+			eat("false", "keyword")
+		} else if currentToken == "true" {
+			eat("true", "keyword")
+		} else if currentToken == "null" {
+			eat("null", "keyword")
+		} else if currentToken == "this" {
+			eat("this", "keyword")
+		}
+	case "identifier":
 		identifier()
-		if currentToken == "," {
-			eat(",", "symbol")
-		} else if currentToken == ";" {
-			eat(";", "symbol")
-			break
+		if jacktokenizer.GetTokenType(currentToken) == "symbol" {
+			if currentToken == "." {
+				eat(".", "symbol")
+				identifier()
+			} else if currentToken == "[" {
+				eat("[", "symbol")
+				compileExpression()
+				eat("]", "symbol")
+			}
+		}
+	case "symbol":
+		if currentToken == "~" {
+			eat("~", "symbol")
+		} else if currentToken == "-" {
+			eat("-", "symbol")
 		} else {
-			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLine())
+			handleSyntaxError("Expected ~ | - on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	}
 
-	appnedClose("varDec")
+	appendClose("term")
+}
+
+func compileExpressionList() {
+
 }

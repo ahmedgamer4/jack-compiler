@@ -66,11 +66,11 @@ var (
 	}
 )
 
-func GetCurrentTokens() []string {
+func GetCurrentTokensList() []string {
 	return currentTokenList
 }
 
-func GetCurrentLine() int {
+func GetCurrentLineNumber() int {
 	return lineNumber
 }
 
@@ -80,7 +80,7 @@ func GetTokenType(token string) string {
 	} else if _, ok := symbols[token]; ok {
 		return "symbol"
 	} else if _, err := strconv.Atoi(token); err == nil {
-		return "intgerConstant"
+		return "integerConstant"
 	} else if strings.HasPrefix(token, "\"") {
 		return "stringConstant"
 	} else {
