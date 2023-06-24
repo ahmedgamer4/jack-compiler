@@ -70,8 +70,8 @@ func GetCurrentTokens() []string {
 	return currentTokenList
 }
 
-func GetPos() (int, int) {
-	return lineNumber, pos
+func GetCurrentLine() int {
+	return lineNumber
 }
 
 func GetTokenType(token string) string {
