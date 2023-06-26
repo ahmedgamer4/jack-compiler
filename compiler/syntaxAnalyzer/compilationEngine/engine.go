@@ -135,9 +135,7 @@ func CompileClass() {
 		handleSyntaxError("Expected keyword class on line", jacktokenizer.GetCurrentLineNumber())
 	}
 	appendOpen("class")
-	println("currentToken", currentToken)
 	eat("class", "keyword")
-	println("currentToken", currentToken)
 	identifier()
 	eat("{", "symbol")
 
@@ -213,7 +211,9 @@ func compileParamterList() {
 func compileSubroutineBody() {
 	appendOpen("subroutineBody")
 	eat("{", "symbol")
-	compileVarDec()
+	if currentToken == "var" {
+		compileVarDec()
+	}
 	compileStatements()
 	eat("}", "symbol")
 	appendClose("subroutineBody")
@@ -233,7 +233,7 @@ func compileVarDec() {
 				eat(";", "symbol")
 				break
 			} else {
-				handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
+				handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber(), "got", currentToken)
 			}
 		}
 
@@ -257,7 +257,7 @@ func compileStatements() {
 	case "}":
 		return
 	default:
-		handleSyntaxError("Expected statment (let | if | while | do | return)")
+		handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
 	}
 	appendClose("statements")
 }
