@@ -209,7 +209,9 @@ func handleTokens(currentLine string) {
 				fmt.Println("Missing \" in line", lineNumber)
 			}
 		}
-		currentTokenList = append(currentTokenList, currentToken)
+		if currentToken != "" || currentToken == " " {
+			currentTokenList = append(currentTokenList, currentToken)
+		}
 		currentToken = ""
 	}
 }

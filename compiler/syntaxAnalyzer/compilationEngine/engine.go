@@ -2,6 +2,7 @@ package compilationengine
 
 import (
 	"fmt"
+	"strings"
 
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
 )
@@ -14,15 +15,14 @@ var (
 	input []string
 
 	currentToken = ""
-	output       = ""
+	syntaxTree   = ""
 )
 
-// TODO: Compelete this function: it should start the whole engine
-func Run() {
-	return
+func GetIfSyntaxError() bool {
+	return syntaxError
 }
 
-func append(tag string, content string) {
+func appendTag(tag string, content string) {
 	if tag == "&" {
 		tag = "&amp;"
 	} else if tag == "<" {
@@ -31,41 +31,64 @@ func append(tag string, content string) {
 		tag = "&gt;"
 	}
 
-	output += "<" + tag + ">" + content + "</" + tag + ">\n"
+	syntaxTree += "<" + tag + ">\n" + content + "\n" + "</" + tag + ">\n"
 }
 
-func advance() {
-	jacktokenizer.Advance()
+func GetSytaxTree() string {
+	return syntaxTree
+}
+
+/**
+* advance in terms of line not the token
+* in order to know the current line
+* */
+func advance() bool {
+	advance := jacktokenizer.Advance()
 	input = jacktokenizer.GetCurrentTokensList()
+	for len(input) == 0 {
+		jacktokenizer.Advance()
+		input = jacktokenizer.GetCurrentTokensList()
+	}
+	currentToken = input[i]
+	return advance
 }
 
-func nextToken() {
-	if i < len(input) {
+func nextToken() bool {
+	if i < len(input)-1 {
 		i++
-	} else {
-		i = 0
-		advance()
+		currentToken = strings.TrimSpace(input[i])
+		return true
 	}
+	i = 0
+	adv := advance()
+	currentToken = strings.TrimSpace(input[i])
+	return adv
 }
 
 func appendOpen(tag string) {
-	output += "<" + tag + ">\n"
+	syntaxTree += "<" + tag + ">\n"
 }
 
 func appendClose(tag string) {
-	output += "</" + tag + ">\n"
+	syntaxTree += "</" + tag + ">\n"
 }
 
-func setCurrentToken(str string) {
-	currentToken = str
+func checkTokenIsEmpty() {
+	for currentToken == "" || currentToken == " " {
+		nextToken()
+	}
 }
 
 func eat(str string, tokenType string) {
+	checkTokenIsEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == tokenType {
 		if currentToken == str {
-			append(tag, str)
+			appendTag(tag, currentToken)
+			println("eat", currentToken)
 			nextToken()
+			println("eat", currentToken)
+			checkTokenIsEmpty()
 			return
 		}
 	}
@@ -73,9 +96,12 @@ func eat(str string, tokenType string) {
 }
 
 func identifier() {
+	checkTokenIsEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == "identifier" {
-		append(tag, currentToken)
+		appendTag(tag, currentToken)
+		nextToken()
+		checkTokenIsEmpty()
 		return
 	}
 	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber())
@@ -102,13 +128,27 @@ func handleTypes(isFunction bool) {
 	}
 }
 
-func compileClass() {
+func CompileClass() {
+	advance()
+	checkTokenIsEmpty()
+	if currentToken != "class" {
+		handleSyntaxError("Expected keyword class on line", jacktokenizer.GetCurrentLineNumber())
+	}
 	appendOpen("class")
+	println("currentToken", currentToken)
 	eat("class", "keyword")
-	eat("className", "identifier")
+	println("currentToken", currentToken)
+	identifier()
 	eat("{", "symbol")
-	compileClassVarDec()
-	compileSubroutineDec()
+
+	if currentToken == "static" || currentToken == "field" {
+		compileClassVarDec()
+	}
+
+	if currentToken == "function" || currentToken == "method" || currentToken == "constructor" {
+		compileSubroutineDec()
+	}
+
 	eat("}", "symbol")
 	appendClose("class")
 }
@@ -322,10 +362,10 @@ func compileTerm() {
 
 	switch jacktokenizer.GetTokenType(currentToken) {
 	case "integerConstant":
-		append(currentToken, "integerConstant")
+		appendTag(currentToken, "integerConstant")
 		nextToken()
 	case "stringConstant":
-		append(currentToken, "stringConstant")
+		appendTag(currentToken, "stringConstant")
 		nextToken()
 	case "keyword":
 		if currentToken == "false" {
