@@ -20,5 +20,4 @@ func HandleFileInput() {
 	}
 
 	outputFile.WriteString(s)
-	println(s, outputFile)
 }

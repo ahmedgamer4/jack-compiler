@@ -1,7 +1,6 @@
 package compilationengine
 
 import (
-	"fmt"
 	"strings"
 
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
@@ -106,7 +105,7 @@ func identifier() {
 }
 
 func handleSyntaxError(message ...any) {
-	fmt.Println(message...)
+	println(message)
 	syntaxError = true
 }
 
@@ -184,10 +183,6 @@ func compileSubroutineDec() {
 		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
-	if currentToken == "method" {
-		fmt.Println("sub", input, currentToken)
-		return
-	}
 	handleTypes(true)
 	identifier()
 
@@ -280,11 +275,7 @@ func compileLet() {
 			eat("]", "symbol")
 		}
 		eat("=", "symbol")
-		println("before exp", currentToken)
-
 		compileExpression()
-		println("after exp", currentToken)
-		println("; message")
 		eat(";", "symbol")
 		appendClose("letStatement")
 	}
@@ -450,7 +441,6 @@ func compileTerm() {
 		}
 		// TODO: Fix this function
 	case "symbol":
-		println("symbol", currentToken)
 		if currentToken == "~" {
 			eat("~", "symbol")
 			compileTerm()
