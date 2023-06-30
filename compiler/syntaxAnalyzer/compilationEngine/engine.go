@@ -23,12 +23,12 @@ func IsSyntaxError() bool {
 }
 
 func appendTag(tag string, content string) {
-	if tag == "&" {
-		tag = "&amp;"
-	} else if tag == "<" {
-		tag = "&lt;"
-	} else if tag == ">" {
-		tag = "&gt;"
+	if content == "&" {
+		content = "&amp;"
+	} else if content == "<" {
+		content = "&lt;"
+	} else if content == ">" {
+		content = "&gt;"
 	}
 
 	syntaxTree += "<" + tag + "> " + content + "" + " </" + tag + ">\n"
@@ -280,7 +280,11 @@ func compileLet() {
 			eat("]", "symbol")
 		}
 		eat("=", "symbol")
+		println("before exp", currentToken)
+
 		compileExpression()
+		println("after exp", currentToken)
+		println("; message")
 		eat(";", "symbol")
 		appendClose("letStatement")
 	}
@@ -388,7 +392,8 @@ func compileExpression() {
 		case "=":
 			eat("=", "symbol")
 		default:
-			break
+			appendClose("expression")
+			return
 		}
 
 		compileTerm()
@@ -398,10 +403,7 @@ func compileExpression() {
 }
 
 func compileTerm() {
-	if currentToken == ";" {
-		return
-	}
-	if jacktokenizer.GetTokenType(currentToken) == "symbol" && currentToken != "-" && currentToken != "~" {
+	if currentToken == ";" || currentToken == " " {
 		return
 	}
 	appendOpen("term")
@@ -448,7 +450,7 @@ func compileTerm() {
 		}
 		// TODO: Fix this function
 	case "symbol":
-		println("currentToken", currentToken)
+		println("symbol", currentToken)
 		if currentToken == "~" {
 			eat("~", "symbol")
 			compileTerm()
@@ -456,7 +458,6 @@ func compileTerm() {
 			eat("-", "symbol")
 			compileTerm()
 		} else if currentToken == "(" {
-			println("symbol", currentToken)
 			eat("(", "symbol")
 			compileExpression()
 			eat(")", "symbol")

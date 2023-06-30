@@ -221,7 +221,7 @@ func handleTokens(currentLine string) {
 func Advance() bool {
 	if bfr.Scan() {
 		lineNumber++
-		currenLine = bfr.Text()
+		currenLine = strings.TrimSpace(bfr.Text())
 
 		if strings.HasPrefix(currenLine, "//") {
 			bfr.Scan()
