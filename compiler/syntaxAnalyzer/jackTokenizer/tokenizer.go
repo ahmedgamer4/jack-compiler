@@ -41,6 +41,8 @@ var (
 		"false":       0,
 		"null":        0,
 		"this":        0,
+		"do":          0,
+		"method":      0,
 	}
 
 	symbols = map[string]int{

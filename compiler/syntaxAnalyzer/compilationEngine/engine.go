@@ -18,7 +18,7 @@ var (
 	syntaxTree   = ""
 )
 
-func GetIfSyntaxError() bool {
+func IsSyntaxError() bool {
 	return syntaxError
 }
 
@@ -31,7 +31,7 @@ func appendTag(tag string, content string) {
 		tag = "&gt;"
 	}
 
-	syntaxTree += "<" + tag + ">\n" + content + "\n" + "</" + tag + ">\n"
+	syntaxTree += "<" + tag + "> " + content + "" + " </" + tag + ">\n"
 }
 
 func GetSytaxTree() string {
@@ -85,14 +85,12 @@ func eat(str string, tokenType string) {
 	if tag == tokenType {
 		if currentToken == str {
 			appendTag(tag, currentToken)
-			println("eat", currentToken)
 			nextToken()
-			println("eat", currentToken)
 			checkTokenIsEmpty()
 			return
 		}
 	}
-	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLineNumber())
+	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken)
 }
 
 func identifier() {
@@ -104,7 +102,7 @@ func identifier() {
 		checkTokenIsEmpty()
 		return
 	}
-	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber())
+	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken, input)
 }
 
 func handleSyntaxError(message ...any) {
@@ -113,10 +111,8 @@ func handleSyntaxError(message ...any) {
 }
 
 func handleTypes(isFunction bool) {
-	if isFunction {
-		if currentToken == "void" {
-			eat("void", "keyword")
-		}
+	if currentToken == "void" {
+		eat("void", "keyword")
 	} else if currentToken == "int" {
 		eat("int", "keyword")
 	} else if currentToken == "char" {
@@ -139,11 +135,11 @@ func CompileClass() {
 	identifier()
 	eat("{", "symbol")
 
-	if currentToken == "static" || currentToken == "field" {
+	for currentToken == "static" || currentToken == "field" {
 		compileClassVarDec()
 	}
 
-	if currentToken == "function" || currentToken == "method" || currentToken == "constructor" {
+	for currentToken == "function" || currentToken == "method" || currentToken == "constructor" {
 		compileSubroutineDec()
 	}
 
@@ -177,7 +173,7 @@ func compileClassVarDec() {
 }
 
 func compileSubroutineDec() {
-	appendOpen("subroutine")
+	appendOpen("subroutineDec")
 	if currentToken == "function" {
 		eat("function", "keyword")
 	} else if currentToken == "method" {
@@ -188,17 +184,23 @@ func compileSubroutineDec() {
 		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
+	if currentToken == "method" {
+		fmt.Println("sub", input, currentToken)
+		return
+	}
 	handleTypes(true)
 	identifier()
 
 	eat("(", "symbol")
-	compileParamterList()
+	compileParameterList()
 	eat(")", "symbol")
 	compileSubroutineBody()
-	appendClose("subroutine")
+	appendClose("subroutineDec")
 }
 
-func compileParamterList() {
+func compileParameterList() {
+	appendOpen("parameterList")
+
 	for currentToken != ")" {
 		handleTypes(false)
 		identifier()
@@ -206,15 +208,18 @@ func compileParamterList() {
 			eat(",", "symbol")
 		}
 	}
+	appendClose("parameterList")
 }
 
 func compileSubroutineBody() {
 	appendOpen("subroutineBody")
 	eat("{", "symbol")
-	if currentToken == "var" {
+	for currentToken == "var" {
 		compileVarDec()
 	}
-	compileStatements()
+	for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
+		compileStatements()
+	}
 	eat("}", "symbol")
 	appendClose("subroutineBody")
 }
@@ -243,21 +248,23 @@ func compileVarDec() {
 
 func compileStatements() {
 	appendOpen("statements")
-	switch currentToken {
-	case "let":
-		compileLet()
-	case "if":
-		compileIf()
-	case "while":
-		compileWhile()
-	case "do":
-		compileDo()
-	case "return":
-		compileReturn()
-	case "}":
-		return
-	default:
-		handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
+	for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
+		switch currentToken {
+		case "let":
+			compileLet()
+		case "if":
+			compileIf()
+		case "while":
+			compileWhile()
+		case "do":
+			compileDo()
+		case "return":
+			compileReturn()
+		case "}":
+			break
+		default:
+			handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
+		}
 	}
 	appendClose("statements")
 }
@@ -267,6 +274,11 @@ func compileLet() {
 		appendOpen("letStatement")
 		eat("let", "keyword")
 		identifier()
+		for currentToken == "[" {
+			eat("[", "symbol")
+			compileExpression()
+			eat("]", "symbol")
+		}
 		eat("=", "symbol")
 		compileExpression()
 		eat(";", "symbol")
@@ -284,6 +296,12 @@ func compileIf() {
 		eat("{", "symbol")
 		compileStatements()
 		eat("}", "symbol")
+		if currentToken == "else" {
+			eat("else", "keyword")
+			eat("{", "symbol")
+			compileStatements()
+			eat("}", "symbol")
+		}
 		appendClose("ifStatement")
 	}
 }
@@ -307,6 +325,10 @@ func compileDo() {
 		appendOpen("doStatement")
 		eat("do", "keyword")
 		identifier()
+		if currentToken == "." {
+			eat(".", "symbol")
+			identifier()
+		}
 		eat("(", "symbol")
 		compileExpressionList()
 		eat(")", "symbol")
@@ -319,8 +341,12 @@ func compileReturn() {
 	if currentToken == "return" {
 		appendOpen("returnStatement")
 		eat("return", "keyword")
-		compileExpression()
-		eat(";", "symbol")
+		if currentToken == ";" {
+			eat(";", "symbol")
+		} else {
+			compileExpression()
+			eat(";", "symbol")
+		}
 		appendClose("returnStatement")
 	}
 }
@@ -328,6 +354,18 @@ func compileReturn() {
 func compileExpression() {
 	appendOpen("expression")
 	compileTerm()
+
+	// invalidSymbols := map[string]int{
+	// 	"{": 0,
+	// 	"}": 0,
+	// 	"(": 0,
+	// 	")": 0,
+	// 	"[": 0,
+	// 	"]": 0,
+	// 	".": 0,
+	// 	",": 0,
+	// 	";": 0,
+	// }
 
 	if jacktokenizer.GetTokenType(currentToken) == "symbol" {
 		switch currentToken {
@@ -349,6 +387,8 @@ func compileExpression() {
 			eat(">", "symbol")
 		case "=":
 			eat("=", "symbol")
+		default:
+			break
 		}
 
 		compileTerm()
@@ -358,14 +398,20 @@ func compileExpression() {
 }
 
 func compileTerm() {
+	if currentToken == ";" {
+		return
+	}
+	if jacktokenizer.GetTokenType(currentToken) == "symbol" && currentToken != "-" && currentToken != "~" {
+		return
+	}
 	appendOpen("term")
 
 	switch jacktokenizer.GetTokenType(currentToken) {
 	case "integerConstant":
-		appendTag(currentToken, "integerConstant")
+		appendTag("integerConstant", currentToken)
 		nextToken()
 	case "stringConstant":
-		appendTag(currentToken, "stringConstant")
+		appendTag("stringConstant", currentToken)
 		nextToken()
 	case "keyword":
 		if currentToken == "false" {
@@ -376,10 +422,12 @@ func compileTerm() {
 			eat("null", "keyword")
 		} else if currentToken == "this" {
 			eat("this", "keyword")
+		} else if currentToken == "return" {
+			eat("return", "keyword")
 		}
 	case "identifier":
 		identifier()
-		if jacktokenizer.GetTokenType(currentToken) == "symbol" {
+		if jacktokenizer.GetTokenType(currentToken) == "symbol" || currentToken != ";" {
 			if currentToken == "." {
 				eat(".", "symbol")
 				identifier()
@@ -387,26 +435,36 @@ func compileTerm() {
 				compileExpressionList()
 				eat(")", "symbol")
 			} else if currentToken == "[" {
-				eat("[", "symbol")
-				compileExpression()
-				eat("]", "symbol")
+				for currentToken == "[" {
+					eat("[", "symbol")
+					compileExpression()
+					eat("]", "symbol")
+				}
 			} else if currentToken == "(" {
 				eat("(", "symbol")
 				compileExpressionList()
 				eat(")", "symbol")
 			}
 		}
+		// TODO: Fix this function
 	case "symbol":
+		println("currentToken", currentToken)
 		if currentToken == "~" {
 			eat("~", "symbol")
+			compileTerm()
 		} else if currentToken == "-" {
 			eat("-", "symbol")
+			compileTerm()
 		} else if currentToken == "(" {
-
+			println("symbol", currentToken)
+			eat("(", "symbol")
+			compileExpression()
+			eat(")", "symbol")
 		} else {
 			handleSyntaxError("Expected ~ | - on line", jacktokenizer.GetCurrentLineNumber())
 		}
-		compileTerm()
+	default:
+		handleSyntaxError("symbol | identifier | string | integer expected")
 	}
 
 	appendClose("term")

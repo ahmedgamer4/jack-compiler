@@ -10,10 +10,15 @@ import (
 func HandleFileInput() {
 	jacktokenizer.OpenFile(os.Args[1])
 	compilationengine.CompileClass()
-	// for jacktokenizer.Advance() {
-	// 	fmt.Println(jacktokenizer.GetCurrentTokensList())
-	// }
 	jacktokenizer.CloseFile()
 	s := compilationengine.GetSytaxTree()
-	println(s)
+
+	out := os.Args[1][:len(os.Args[1])-5] + ".test.xml"
+	outputFile, err := os.OpenFile(out, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		panic("Error creating file")
+	}
+
+	outputFile.WriteString(s)
+	println(s, outputFile)
 }
