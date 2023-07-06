@@ -42,6 +42,9 @@ func (s *SymbolTable) Define(name, typ string, kind FieldType) {
 	}
 }
 
+/**
+* Return vars count for every kind
+* */
 func (s *SymbolTable) VarCount(kind FieldType) int {
 	switch kind {
 	case Static:
@@ -54,7 +57,7 @@ func (s *SymbolTable) VarCount(kind FieldType) int {
 		return s.ArgIdx
 	default:
 		println("Kind does not exist")
-		return 0
+		return -1
 	}
 }
 
