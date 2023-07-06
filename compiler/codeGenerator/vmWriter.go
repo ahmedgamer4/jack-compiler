@@ -37,6 +37,40 @@ func (v *VMWriter) WritePop(seg Segment, i int) {
 }
 
 func (v *VMWriter) WriteArithmetic(command Command) {
+	switch command {
+	case "+":
+		v.File.WriteString("add\n")
+		break
+	case "-":
+		v.File.WriteString("sub\n")
+		break
+	case "*":
+		v.WriteCall("Math.multiply", 2)
+		break
+	case "/":
+		v.WriteCall("Math.divide", 2)
+		break
+	case "&":
+		v.File.WriteString("and\n")
+		break
+	case "|":
+		v.File.WriteString("or\n")
+		break
+	case "<":
+		v.File.WriteString("lt\n")
+		break
+	case ">":
+		v.File.WriteString("gt\n")
+		break
+	case "=":
+		v.File.WriteString("eq\n")
+		break
+	case "neg":
+		v.File.WriteString("eq\n")
+		break
+	default:
+		println("Unknown operator")
+	}
 }
 
 func (v *VMWriter) WriteLabel(label string) {
@@ -73,6 +107,8 @@ func (v *VMWriter) WriteCall(name string, nArgs int) {
 }
 
 func (v *VMWriter) WriteFunction(name string, nArgs int) {
+	code := fmt.Sprintf("function %s %d\n", name, nArgs)
+	v.File.WriteString(code)
 }
 
 func (v *VMWriter) WriteReturn() {
