@@ -9,38 +9,81 @@ const (
 	Lcl    FieldType = "local"
 )
 
-type Table struct {
-	Name  string
+type Var struct {
 	Type  string
 	Kind  FieldType
 	Index int
 }
 
 type SymbolTable struct {
-	ClassTable      Table
-	SubroutineTable Table
-	ClassIdx        int
-	SubroutineIdx   int
+	ClassSymbolTable      map[string]Var
+	SubroutineSymbolTable map[string]Var
+	StaticIdx             int
+	FieldIdx              int
+	ArgIdx                int
+	LclIdx                int
 }
 
-func (s *SymbolTable) Reset() {
+func (s *SymbolTable) ResetSubroutineTable() {
+	s.SubroutineSymbolTable = map[string]Var{}
 }
 
 func (s *SymbolTable) Define(name, typ string, kind FieldType) {
+	if kind == Arg || kind == Lcl {
+		if _, ok := s.SubroutineSymbolTable[name]; !ok {
+			s.SubroutineSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
+		}
+	} else if kind == Field || kind == Static {
+		if _, ok := s.ClassSymbolTable[name]; !ok {
+			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
+		}
+	} else {
+		println("var already exists")
+	}
 }
 
-func (s *SymbolTable) VarCount() int {
-	return 0
+func (s *SymbolTable) VarCount(kind FieldType) int {
+	switch kind {
+	case Static:
+		return s.StaticIdx
+	case Field:
+		return s.FieldIdx
+	case Lcl:
+		return s.LclIdx
+	case Arg:
+		return s.ArgIdx
+	default:
+		println("Kind does not exist")
+		return 0
+	}
 }
 
 func (s *SymbolTable) KindOf(name string) FieldType {
-	return ""
+	if v, ok := s.SubroutineSymbolTable[name]; ok {
+		return v.Kind
+	} else if v, ok := s.ClassSymbolTable[name]; ok {
+		return v.Kind
+	} else {
+		return ""
+	}
 }
 
 func (s *SymbolTable) TypeOf(name string) string {
-	return ""
+	if v, ok := s.SubroutineSymbolTable[name]; ok {
+		return v.Type
+	} else if v, ok := s.ClassSymbolTable[name]; ok {
+		return v.Type
+	} else {
+		return ""
+	}
 }
 
-func (s *SymbolTable) IndexOf(name string) string {
-	return ""
+func (s *SymbolTable) IndexOf(name string) int {
+	if v, ok := s.SubroutineSymbolTable[name]; ok {
+		return v.Index
+	} else if v, ok := s.ClassSymbolTable[name]; ok {
+		return v.Index
+	} else {
+		return -1
+	}
 }
