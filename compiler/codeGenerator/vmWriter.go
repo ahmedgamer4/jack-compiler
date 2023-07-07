@@ -1,13 +1,13 @@
 package codegenerator
 
+/**
+* Simple module that writes VM commands to the output .vm file
+**/
+
 import (
 	"fmt"
 	"os"
 )
-
-/**
-* Simple module that writes VM commands to the output .vm file
-* */
 
 type Segment string
 type Command string

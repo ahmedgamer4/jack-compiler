@@ -1,5 +1,9 @@
 package codegenerator
 
+/**
+* A module to handle variables
+**/
+
 type FieldType string
 
 const (
@@ -38,7 +42,7 @@ func (s *SymbolTable) Define(name, typ string, kind FieldType) {
 			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
 		}
 	} else {
-		println("var already exists")
+		println("var already exists", name)
 	}
 }
 
@@ -56,7 +60,7 @@ func (s *SymbolTable) VarCount(kind FieldType) int {
 	case Arg:
 		return s.ArgIdx
 	default:
-		println("Kind does not exist")
+		println("Kind does not exist", kind)
 		return -1
 	}
 }
