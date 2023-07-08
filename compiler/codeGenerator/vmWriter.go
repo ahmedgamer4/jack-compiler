@@ -9,8 +9,10 @@ import (
 	"fmt"
 )
 
-type Segment string
-type Command string
+type (
+	Segment string
+	Command string
+)
 
 type VMWriter struct {
 	StringBuffer bytes.Buffer
@@ -34,34 +36,26 @@ func (v *VMWriter) WriteArithmetic(command Command) {
 	switch command {
 	case "+":
 		v.StringBuffer.WriteString("add\n")
-		break
 	case "-":
 		v.StringBuffer.WriteString("sub\n")
-		break
 	case "*":
 		v.WriteCall("Math.multiply", 2)
-		break
 	case "/":
 		v.WriteCall("Math.divide", 2)
-		break
 	case "&":
 		v.StringBuffer.WriteString("and\n")
-		break
 	case "|":
 		v.StringBuffer.WriteString("or\n")
-		break
 	case "<":
 		v.StringBuffer.WriteString("lt\n")
-		break
 	case ">":
 		v.StringBuffer.WriteString("gt\n")
-		break
 	case "=":
 		v.StringBuffer.WriteString("eq\n")
-		break
+	case "~":
+		v.StringBuffer.WriteString("not\n")
 	case "neg":
 		v.StringBuffer.WriteString("neg\n")
-		break
 	default:
 		println("Unknown operator")
 	}
@@ -102,4 +96,8 @@ func (v *VMWriter) WriteFunction(name string, nArgs int) {
 
 func (v *VMWriter) WriteReturn() {
 	v.StringBuffer.WriteString("return\n")
+}
+
+func (v *VMWriter) GetVMCode() string {
+	return v.StringBuffer.String()
 }

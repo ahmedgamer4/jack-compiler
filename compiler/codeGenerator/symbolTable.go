@@ -33,16 +33,22 @@ func (s *SymbolTable) ResetSubroutineTable() {
 }
 
 func (s *SymbolTable) Define(name, typ string, kind FieldType) {
-	if kind == Arg || kind == Lcl {
+	s.ClassSymbolTable = map[string]Var{}
+	s.SubroutineSymbolTable = map[string]Var{}
+
+	switch kind {
+
+	case Arg, Lcl:
 		if _, ok := s.SubroutineSymbolTable[name]; !ok {
 			s.SubroutineSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
 		}
-	} else if kind == Field || kind == Static {
+	case Field, Static:
 		if _, ok := s.ClassSymbolTable[name]; !ok {
 			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
 		}
-	} else {
+	default:
 		println("var already exists", name)
+		// }
 	}
 }
 

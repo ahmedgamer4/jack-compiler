@@ -1,8 +1,10 @@
 package compilationengine
 
 import (
+	"fmt"
 	"strings"
 
+	codegenerator "github.com/ahmedgamer4/jack-compiler/compiler/codeGenerator"
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
 )
 
@@ -15,6 +17,9 @@ var (
 
 	currentToken = ""
 	syntaxTree   = ""
+
+	symbolTable = codegenerator.SymbolTable{}
+	writer      = codegenerator.VMWriter{}
 )
 
 func IsSyntaxError() bool {
@@ -72,20 +77,20 @@ func appendClose(tag string) {
 	syntaxTree += "</" + tag + ">\n"
 }
 
-func checkTokenIsEmpty() {
+func isTokenEmpty() {
 	for currentToken == "" || currentToken == " " {
 		nextToken()
 	}
 }
 
 func eat(str string, tokenType string) {
-	checkTokenIsEmpty()
+	isTokenEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == tokenType {
 		if currentToken == str {
 			appendTag(tag, currentToken)
 			nextToken()
-			checkTokenIsEmpty()
+			isTokenEmpty()
 			return
 		}
 	}
@@ -93,25 +98,27 @@ func eat(str string, tokenType string) {
 }
 
 func identifier() {
-	checkTokenIsEmpty()
+	isTokenEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == "identifier" {
 		appendTag(tag, currentToken)
 		nextToken()
-		checkTokenIsEmpty()
+		isTokenEmpty()
 		return
 	}
 	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken, input)
 }
 
 func handleSyntaxError(message ...any) {
-	println(message)
+	fmt.Println(message, jacktokenizer.GetCurrentLineNumber())
 	syntaxError = true
 }
 
 func handleTypes(isFunction bool) {
-	if currentToken == "void" {
-		eat("void", "keyword")
+	if isFunction {
+		if currentToken == "void" {
+			eat("void", "keyword")
+		}
 	} else if currentToken == "int" {
 		eat("int", "keyword")
 	} else if currentToken == "char" {
@@ -125,7 +132,7 @@ func handleTypes(isFunction bool) {
 
 func CompileClass() {
 	advance()
-	checkTokenIsEmpty()
+	isTokenEmpty()
 	if currentToken != "class" {
 		handleSyntaxError("Expected keyword class on line", jacktokenizer.GetCurrentLineNumber())
 	}
@@ -147,17 +154,25 @@ func CompileClass() {
 }
 
 func compileClassVarDec() {
+	var currentKind codegenerator.FieldType
+	var currentType string
+
 	appendOpen("classVarDec")
 	if currentToken == "static" {
+		currentKind = codegenerator.FieldType(currentToken)
 		eat("static", "keyword")
 	} else if currentToken == "field" {
+		currentKind = codegenerator.FieldType(currentToken)
 		eat("field", "keyword")
 	} else {
 		handleSyntaxError("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
+	currentType = currentToken
 	handleTypes(false)
+
 	for i < len(input) {
+		symbolTable.Define(currentToken, currentType, currentKind)
 		identifier()
 		if currentToken == "," {
 			eat(",", "symbol")
@@ -168,6 +183,7 @@ func compileClassVarDec() {
 			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	}
+	fmt.Println(symbolTable.ClassSymbolTable, jacktokenizer.GetCurrentLineNumber())
 	appendClose("classVarDec")
 }
 
@@ -184,7 +200,9 @@ func compileSubroutineDec() {
 	}
 
 	handleTypes(true)
+	println(currentToken)
 	identifier()
+	println(currentToken)
 
 	eat("(", "symbol")
 	compileParameterList()
