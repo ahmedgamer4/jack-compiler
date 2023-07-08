@@ -28,32 +28,60 @@ type SymbolTable struct {
 	LclIdx                int
 }
 
+func NewSTable() *SymbolTable {
+	s := &SymbolTable{}
+	s.ClassSymbolTable = map[string]Var{}
+	s.SubroutineSymbolTable = map[string]Var{}
+	s.FieldIdx = -1
+	s.LclIdx = -1
+	s.ArgIdx = -1
+	s.StaticIdx = -1
+	return s
+}
+
 func (s *SymbolTable) ResetSubroutineTable() {
 	s.SubroutineSymbolTable = map[string]Var{}
 }
 
 func (s *SymbolTable) Define(name, typ string, kind FieldType) {
-	s.ClassSymbolTable = map[string]Var{}
-	s.SubroutineSymbolTable = map[string]Var{}
-
 	switch kind {
 
 	case Arg, Lcl:
 		if _, ok := s.SubroutineSymbolTable[name]; !ok {
-			s.SubroutineSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
+			s.SubroutineSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.getNextIdx(kind)}
 		}
 	case Field, Static:
 		if _, ok := s.ClassSymbolTable[name]; !ok {
-			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.VarCount(kind) + 1}
+			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.getNextIdx(kind)}
 		}
 	default:
 		println("var already exists", name)
-		// }
 	}
 }
 
+func (s *SymbolTable) getNextIdx(kind FieldType) int {
+	var idxK *int
+
+	switch kind {
+	case Static:
+		idxK = &s.StaticIdx
+	case Field:
+		idxK = &s.FieldIdx
+	case Lcl:
+		idxK = &s.LclIdx
+	case Arg:
+		idxK = &s.ArgIdx
+	default:
+		println("Kind does not exist", kind)
+		return -1
+	}
+
+	*idxK++
+	return *idxK
+}
+
 /**
-* Return vars count for every kind
+* Return vars count for the passed kind
 * */
 func (s *SymbolTable) VarCount(kind FieldType) int {
 	switch kind {

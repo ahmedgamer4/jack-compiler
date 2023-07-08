@@ -18,6 +18,10 @@ type VMWriter struct {
 	StringBuffer bytes.Buffer
 }
 
+func NewWriter() *VMWriter {
+	return &VMWriter{}
+}
+
 func (v *VMWriter) WritePush(seg Segment, i int) {
 	code := fmt.Sprintf(
 		`push %s %d

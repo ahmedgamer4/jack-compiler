@@ -18,8 +18,8 @@ var (
 	currentToken = ""
 	syntaxTree   = ""
 
-	symbolTable = codegenerator.SymbolTable{}
-	writer      = codegenerator.VMWriter{}
+	symbolTable = codegenerator.NewSTable()
+	writer      = codegenerator.NewWriter()
 )
 
 func IsSyntaxError() bool {
@@ -27,11 +27,12 @@ func IsSyntaxError() bool {
 }
 
 func appendTag(tag string, content string) {
-	if content == "&" {
+	switch tag {
+	case "&":
 		content = "&amp;"
-	} else if content == "<" {
+	case "<":
 		content = "&lt;"
-	} else if content == ">" {
+	case ">":
 		content = "&gt;"
 	}
 
@@ -114,18 +115,17 @@ func handleSyntaxError(message ...any) {
 	syntaxError = true
 }
 
-func handleTypes(isFunction bool) {
-	if isFunction {
-		if currentToken == "void" {
-			eat("void", "keyword")
-		}
-	} else if currentToken == "int" {
+func handleTypes() {
+	switch currentToken {
+	case "void":
+		eat("void", "keyword")
+	case "int":
 		eat("int", "keyword")
-	} else if currentToken == "char" {
+	case "char":
 		eat("char", "keyword")
-	} else if currentToken == "boolean" {
+	case "boolean":
 		eat("boolean", "keyword")
-	} else {
+	default:
 		identifier() // If you have a custom type this will make sense
 	}
 }
@@ -158,18 +158,19 @@ func compileClassVarDec() {
 	var currentType string
 
 	appendOpen("classVarDec")
-	if currentToken == "static" {
+	switch currentToken {
+	case "static":
 		currentKind = codegenerator.FieldType(currentToken)
 		eat("static", "keyword")
-	} else if currentToken == "field" {
+	case "field":
 		currentKind = codegenerator.FieldType(currentToken)
 		eat("field", "keyword")
-	} else {
+	default:
 		handleSyntaxError("(static | field ) keyword expected on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
 	currentType = currentToken
-	handleTypes(false)
+	handleTypes()
 
 	for i < len(input) {
 		symbolTable.Define(currentToken, currentType, currentKind)
@@ -183,23 +184,24 @@ func compileClassVarDec() {
 			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	}
-	fmt.Println(symbolTable.ClassSymbolTable, jacktokenizer.GetCurrentLineNumber())
+	fmt.Println(symbolTable, jacktokenizer.GetCurrentLineNumber())
 	appendClose("classVarDec")
 }
 
 func compileSubroutineDec() {
 	appendOpen("subroutineDec")
-	if currentToken == "function" {
+	switch currentToken {
+	case "function":
 		eat("function", "keyword")
-	} else if currentToken == "method" {
+	case "method":
 		eat("method", "keyword")
-	} else if currentToken == "constructor" {
+	case "constructor":
 		eat("constructor", "keyword")
-	} else {
+	default:
 		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
-	handleTypes(true)
+	handleTypes()
 	println(currentToken)
 	identifier()
 	println(currentToken)
@@ -215,7 +217,7 @@ func compileParameterList() {
 	appendOpen("parameterList")
 
 	for currentToken != ")" {
-		handleTypes(false)
+		handleTypes()
 		identifier()
 		if currentToken == "," {
 			eat(",", "symbol")
@@ -241,7 +243,7 @@ func compileVarDec() {
 	if currentToken == "var" {
 		appendOpen("varDec")
 		eat("var", "keyword")
-		handleTypes(false)
+		handleTypes()
 
 		for i < len(input) {
 			identifier()
@@ -261,24 +263,24 @@ func compileVarDec() {
 
 func compileStatements() {
 	appendOpen("statements")
-	for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
-		switch currentToken {
-		case "let":
-			compileLet()
-		case "if":
-			compileIf()
-		case "while":
-			compileWhile()
-		case "do":
-			compileDo()
-		case "return":
-			compileReturn()
-		case "}":
-			break
-		default:
-			handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
-		}
+	// for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
+	switch currentToken {
+	case "let":
+		compileLet()
+	case "if":
+		compileIf()
+	case "while":
+		compileWhile()
+	case "do":
+		compileDo()
+	case "return":
+		compileReturn()
+	case "}":
+		return
+	default:
+		handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
 	}
+	// }
 	appendClose("statements")
 }
 
@@ -425,15 +427,16 @@ func compileTerm() {
 		appendTag("stringConstant", currentToken)
 		nextToken()
 	case "keyword":
-		if currentToken == "false" {
+		switch currentToken {
+		case "false":
 			eat("false", "keyword")
-		} else if currentToken == "true" {
+		case "true":
 			eat("true", "keyword")
-		} else if currentToken == "null" {
+		case "null":
 			eat("null", "keyword")
-		} else if currentToken == "this" {
+		case "this":
 			eat("this", "keyword")
-		} else if currentToken == "return" {
+		case "return":
 			eat("return", "keyword")
 		}
 	case "identifier":
@@ -459,17 +462,18 @@ func compileTerm() {
 		}
 		// TODO: Fix this function
 	case "symbol":
-		if currentToken == "~" {
+		switch currentToken {
+		case "~":
 			eat("~", "symbol")
 			compileTerm()
-		} else if currentToken == "-" {
+		case "-":
 			eat("-", "symbol")
 			compileTerm()
-		} else if currentToken == "(" {
+		case "(":
 			eat("(", "symbol")
 			compileExpression()
 			eat(")", "symbol")
-		} else {
+		default:
 			handleSyntaxError("Expected ~ | - on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	default:
