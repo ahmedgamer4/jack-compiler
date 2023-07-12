@@ -20,52 +20,6 @@ var (
 	file *os.File
 
 	inBlockComment, inString, inCurrly, inBracket bool // These are the parser state
-
-	keywords = map[string]int{
-		"class":       0,
-		"function":    0,
-		"constructor": 0,
-		"int":         0,
-		"var":         0,
-		"boolean":     0,
-		"char":        0,
-		"void":        0,
-		"static":      0,
-		"field":       0,
-		"let":         0,
-		"if":          0,
-		"else":        0,
-		"while":       0,
-		"return":      0,
-		"true":        0,
-		"false":       0,
-		"null":        0,
-		"this":        0,
-		"do":          0,
-		"method":      0,
-	}
-
-	symbols = map[string]int{
-		"{": 0,
-		"}": 0,
-		"(": 0,
-		")": 0,
-		"[": 0,
-		"]": 0,
-		".": 0,
-		",": 0,
-		";": 0,
-		"+": 0,
-		"-": 0,
-		"*": 0,
-		"/": 0,
-		"&": 0,
-		"|": 0,
-		"<": 0,
-		">": 0,
-		"=": 0,
-		"~": 0,
-	}
 )
 
 func GetCurrentTokensList() []string {
@@ -77,9 +31,9 @@ func GetCurrentLineNumber() int {
 }
 
 func GetTokenType(token string) string {
-	if _, ok := keywords[token]; ok {
+	if _, ok := Keywords[token]; ok {
 		return "keyword"
-	} else if _, ok := symbols[token]; ok {
+	} else if _, ok := Symbols[token]; ok {
 		return "symbol"
 	} else if _, err := strconv.Atoi(token); err == nil {
 		return "integerConstant"
@@ -160,10 +114,10 @@ func handleTokens(currentLine string) {
 				continue
 			}
 			if !inString {
-				if _, ok := keywords[tempToken]; ok {
+				if _, ok := Keywords[tempToken]; ok {
 					currentToken = tempToken
 					tempToken = ""
-				} else if _, ok := symbols[tempToken]; ok {
+				} else if _, ok := Symbols[tempToken]; ok {
 					currentToken = tempToken
 					tempToken = ""
 				} else if letter == '{' {

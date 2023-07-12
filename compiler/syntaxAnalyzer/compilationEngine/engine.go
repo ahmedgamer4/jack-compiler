@@ -2,6 +2,7 @@ package compilationengine
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	codegenerator "github.com/ahmedgamer4/jack-compiler/compiler/codeGenerator"
@@ -20,10 +21,20 @@ var (
 
 	symbolTable = codegenerator.NewSTable()
 	writer      = codegenerator.NewWriter()
+
+	currentCompilingFile = ""
 )
+
+func SetCurrentCFile(filename string) {
+	currentCompilingFile = filename
+}
 
 func IsSyntaxError() bool {
 	return syntaxError
+}
+
+func GetVMCode() string {
+	return writer.GetVMCode()
 }
 
 func appendTag(tag string, content string) {
@@ -110,8 +121,8 @@ func identifier() {
 	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken, input)
 }
 
-func handleSyntaxError(message ...any) {
-	fmt.Println(message, jacktokenizer.GetCurrentLineNumber())
+func handleSyntaxError(message ...interface{}) {
+	fmt.Println(currentCompilingFile, ": ", message, jacktokenizer.GetCurrentLineNumber(), jacktokenizer.GetCurrentTokensList())
 	syntaxError = true
 }
 
@@ -151,6 +162,7 @@ func CompileClass() {
 
 	eat("}", "symbol")
 	appendClose("class")
+	fmt.Println(symbolTable)
 }
 
 func compileClassVarDec() {
@@ -184,7 +196,6 @@ func compileClassVarDec() {
 			handleSyntaxError("Expected symbol , or ; on line", jacktokenizer.GetCurrentLineNumber())
 		}
 	}
-	fmt.Println(symbolTable, jacktokenizer.GetCurrentLineNumber())
 	appendClose("classVarDec")
 }
 
@@ -217,8 +228,11 @@ func compileParameterList() {
 	appendOpen("parameterList")
 
 	for currentToken != ")" {
+		currentType := currentToken
 		handleTypes()
+		currentParam := currentToken
 		identifier()
+		symbolTable.Define(currentParam, currentType, "arg")
 		if currentToken == "," {
 			eat(",", "symbol")
 		}
@@ -232,9 +246,7 @@ func compileSubroutineBody() {
 	for currentToken == "var" {
 		compileVarDec()
 	}
-	for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
-		compileStatements()
-	}
+	compileStatements()
 	eat("}", "symbol")
 	appendClose("subroutineBody")
 }
@@ -263,24 +275,24 @@ func compileVarDec() {
 
 func compileStatements() {
 	appendOpen("statements")
-	// for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
-	switch currentToken {
-	case "let":
-		compileLet()
-	case "if":
-		compileIf()
-	case "while":
-		compileWhile()
-	case "do":
-		compileDo()
-	case "return":
-		compileReturn()
-	case "}":
-		return
-	default:
-		handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
+	for currentToken == "if" || currentToken == "let" || currentToken == "while" || currentToken == "return" || currentToken == "do" {
+		switch currentToken {
+		case "let":
+			compileLet()
+		case "if":
+			compileIf()
+		case "while":
+			compileWhile()
+		case "do":
+			compileDo()
+		case "return":
+			compileReturn()
+		case "}":
+			return
+		default:
+			handleSyntaxError("Expected statment (let | if | while | do | return) got", currentToken)
+		}
 	}
-	// }
 	appendClose("statements")
 }
 
@@ -288,6 +300,10 @@ func compileLet() {
 	if currentToken == "let" {
 		appendOpen("letStatement")
 		eat("let", "keyword")
+
+		currentVarKind := codegenerator.Segment(symbolTable.KindOf(currentToken))
+		currentVarIdx := symbolTable.IndexOf(currentToken)
+
 		identifier()
 		for currentToken == "[" {
 			eat("[", "symbol")
@@ -295,7 +311,11 @@ func compileLet() {
 			eat("]", "symbol")
 		}
 		eat("=", "symbol")
+		// You should compile the expression after the "=" sign then pop the result to the current variable
 		compileExpression()
+
+		writer.WritePop(currentVarKind, currentVarIdx)
+
 		eat(";", "symbol")
 		appendClose("letStatement")
 	}
@@ -356,33 +376,26 @@ func compileReturn() {
 	if currentToken == "return" {
 		appendOpen("returnStatement")
 		eat("return", "keyword")
-		if currentToken == ";" {
-			eat(";", "symbol")
-		} else {
-			compileExpression()
-			eat(";", "symbol")
-		}
+		compileExpression()
+		eat(";", "symbol")
 		appendClose("returnStatement")
 	}
 }
 
 func compileExpression() {
+	isTokenEmpty()
+
+	if currentToken == ";" {
+		return
+	}
 	appendOpen("expression")
+	fstTerm, _ := strconv.Atoi(currentToken)
+
+	writer.WritePush("constant", fstTerm)
 	compileTerm()
 
-	// invalidSymbols := map[string]int{
-	// 	"{": 0,
-	// 	"}": 0,
-	// 	"(": 0,
-	// 	")": 0,
-	// 	"[": 0,
-	// 	"]": 0,
-	// 	".": 0,
-	// 	",": 0,
-	// 	";": 0,
-	// }
-
-	if jacktokenizer.GetTokenType(currentToken) == "symbol" {
+	for jacktokenizer.GetTokenType(currentToken) == "symbol" {
+		op := currentToken
 		switch currentToken {
 		case "+":
 			eat("+", "symbol")
@@ -403,10 +416,18 @@ func compileExpression() {
 		case "=":
 			eat("=", "symbol")
 		default:
+			fmt.Println("appendClose", currentToken, jacktokenizer.GetCurrentTokensList())
 			appendClose("expression")
 			return
 		}
 
+		isTokenEmpty()
+		secTerm, err := strconv.Atoi(currentToken)
+		if err != nil {
+			handleSyntaxError("Cannot add", currentToken, "to int")
+		}
+		writer.WritePush("constant", secTerm)
+		writer.WriteArithmetic(codegenerator.Command(op))
 		compileTerm()
 	}
 
@@ -421,43 +442,66 @@ func compileTerm() {
 
 	switch jacktokenizer.GetTokenType(currentToken) {
 	case "integerConstant":
+		isTokenEmpty()
+		i, err := strconv.Atoi(currentToken)
+		if err != nil {
+			panic("Error converting a string into integer")
+		}
+		writer.WritePush(codegenerator.Segment("constant"), i)
 		appendTag("integerConstant", currentToken)
 		nextToken()
 	case "stringConstant":
+		isTokenEmpty()
 		appendTag("stringConstant", currentToken)
 		nextToken()
 	case "keyword":
 		switch currentToken {
 		case "false":
+			writer.WritePush(codegenerator.Segment("constant"), 0)
 			eat("false", "keyword")
 		case "true":
+			writer.WritePush(codegenerator.Segment("constant"), 1)
+			writer.WriteArithmetic("neg")
 			eat("true", "keyword")
 		case "null":
+			writer.WritePush(codegenerator.Segment("constant"), 0)
 			eat("null", "keyword")
 		case "this":
+			writer.WritePush(codegenerator.Segment("pointer"), 0)
 			eat("this", "keyword")
 		case "return":
+			writer.WriteReturn()
 			eat("return", "keyword")
+		default:
+			return
 		}
 	case "identifier":
+		curFn := currentToken
 		identifier()
+		isTokenEmpty()
 		if jacktokenizer.GetTokenType(currentToken) == "symbol" || currentToken != ";" {
-			if currentToken == "." {
+			switch currentToken {
+			case ".":
+				curFn += currentToken
 				eat(".", "symbol")
 				identifier()
 				eat("(", "symbol")
-				compileExpressionList()
+				argsCount := compileExpressionList()
 				eat(")", "symbol")
-			} else if currentToken == "[" {
+				writer.WriteCall(curFn, argsCount)
+			case "[":
 				for currentToken == "[" {
 					eat("[", "symbol")
 					compileExpression()
 					eat("]", "symbol")
 				}
-			} else if currentToken == "(" {
+			case "(":
 				eat("(", "symbol")
-				compileExpressionList()
+				argsCount := compileExpressionList()
 				eat(")", "symbol")
+				writer.WriteCall(curFn, argsCount)
+			default:
+				return
 			}
 		}
 		// TODO: Fix this function
@@ -469,6 +513,7 @@ func compileTerm() {
 		case "-":
 			eat("-", "symbol")
 			compileTerm()
+			writer.WriteArithmetic(codegenerator.Command("neg"))
 		case "(":
 			eat("(", "symbol")
 			compileExpression()
@@ -483,16 +528,22 @@ func compileTerm() {
 	appendClose("term")
 }
 
-func compileExpressionList() {
+/**
+* It should return an int representing the number of arguments passed
+* */
+func compileExpressionList() int {
+	argsCount := 0
 	appendOpen("expressionList")
 	for i < len(input) {
 		if currentToken == ")" {
 			break
 		}
 		compileExpression()
+		argsCount++
 		if currentToken == "," {
 			eat(",", "symbol")
 		}
 	}
 	appendClose("expressionList")
+	return argsCount
 }

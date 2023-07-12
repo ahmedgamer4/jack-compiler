@@ -17,6 +17,7 @@ func StartParsing() {
 
 		for _, file := range files {
 			var filePath string
+			compilationengine.SetCurrentCFile(file.Name())
 			if os.Args[1][len(os.Args[1])-1] == '/' {
 				filePath = os.Args[1] + file.Name()
 			}
@@ -43,7 +44,7 @@ func createFile(file string) {
 
 	out := file[:len(file)-5] + ".test.xml"
 	println(out)
-	outputFile, err := os.OpenFile(out, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	outputFile, err := os.OpenFile(out, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o644)
 	handleError(err)
 
 	outputFile.WriteString(s)
