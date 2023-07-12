@@ -510,6 +510,7 @@ func compileTerm() {
 		case "~":
 			eat("~", "symbol")
 			compileTerm()
+			writer.WriteArithmetic(codegenerator.Command("~"))
 		case "-":
 			eat("-", "symbol")
 			compileTerm()
