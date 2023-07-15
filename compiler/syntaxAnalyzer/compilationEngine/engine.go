@@ -7,6 +7,8 @@ import (
 
 	codegenerator "github.com/ahmedgamer4/jack-compiler/compiler/codeGenerator"
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -321,53 +323,80 @@ func compileLet() {
 	}
 }
 
+// TODO: Do not forget to finished this function
 func compileIf() {
+	l1 := uuid.New().String()
+	l2 := uuid.New().String()
+
 	if currentToken == "if" {
 		appendOpen("ifStatement")
 		eat("if", "keyword")
 		eat("(", "symbol")
 		compileExpression()
+		writer.WriteArithmetic(codegenerator.Command("~"))
 		eat(")", "symbol")
+		writer.WriteIf(l1)
 		eat("{", "symbol")
 		compileStatements()
+
+		writer.WriteGoto(l2)
+
 		eat("}", "symbol")
+
+		writer.WriteLabel(l1)
 		if currentToken == "else" {
 			eat("else", "keyword")
 			eat("{", "symbol")
 			compileStatements()
 			eat("}", "symbol")
+			writer.WriteLabel(l2)
 		}
 		appendClose("ifStatement")
 	}
 }
 
 func compileWhile() {
+	l1 := uuid.New().String()
+	l2 := uuid.New().String()
+
 	if currentToken == "while" {
 		appendOpen("whileStatement")
 		eat("while", "keyword")
+		writer.WriteLabel(l1)
 		eat("(", "symbol")
 		compileExpression()
+
+		writer.WriteArithmetic(codegenerator.Command("~"))
+		writer.WriteIf(l2)
 		eat(")", "symbol")
 		eat("{", "symbol")
 		compileStatements()
 		eat("}", "symbol")
+
+		writer.WriteGoto(l1)
+		writer.WriteLabel(l2)
 		appendClose("whileStatement")
 	}
 }
 
 func compileDo() {
+	var fn string
 	if currentToken == "do" {
 		appendOpen("doStatement")
 		eat("do", "keyword")
+		fn += currentToken
 		identifier()
 		if currentToken == "." {
 			eat(".", "symbol")
+			fn += "." + currentToken
 			identifier()
 		}
 		eat("(", "symbol")
-		compileExpressionList()
+		nArgs := compileExpressionList()
 		eat(")", "symbol")
 		eat(";", "symbol")
+		writer.WriteCall(fn, nArgs)
+		writer.WritePop("temp", 0)
 		appendClose("doStatement")
 	}
 }
@@ -376,7 +405,12 @@ func compileReturn() {
 	if currentToken == "return" {
 		appendOpen("returnStatement")
 		eat("return", "keyword")
+		isTokenEmpty()
+		if currentToken == ";" {
+			writer.WritePush("constant", 0)
+		}
 		compileExpression()
+		writer.WriteReturn()
 		eat(";", "symbol")
 		appendClose("returnStatement")
 	}
@@ -476,19 +510,19 @@ func compileTerm() {
 			return
 		}
 	case "identifier":
-		curFn := currentToken
+		idn := currentToken
 		identifier()
 		isTokenEmpty()
 		if jacktokenizer.GetTokenType(currentToken) == "symbol" || currentToken != ";" {
 			switch currentToken {
 			case ".":
-				curFn += currentToken
+				idn += currentToken
 				eat(".", "symbol")
 				identifier()
 				eat("(", "symbol")
-				argsCount := compileExpressionList()
+				nArgs := compileExpressionList()
 				eat(")", "symbol")
-				writer.WriteCall(curFn, argsCount)
+				writer.WriteCall(idn, nArgs)
 			case "[":
 				for currentToken == "[" {
 					eat("[", "symbol")
@@ -497,11 +531,11 @@ func compileTerm() {
 				}
 			case "(":
 				eat("(", "symbol")
-				argsCount := compileExpressionList()
+				nArgs := compileExpressionList()
 				eat(")", "symbol")
-				writer.WriteCall(curFn, argsCount)
+				writer.WriteCall(idn, nArgs)
 			default:
-				return
+				break
 			}
 		}
 		// TODO: Fix this function
@@ -533,18 +567,18 @@ func compileTerm() {
 * It should return an int representing the number of arguments passed
 * */
 func compileExpressionList() int {
-	argsCount := 0
+	nArgs := 0
 	appendOpen("expressionList")
 	for i < len(input) {
 		if currentToken == ")" {
 			break
 		}
 		compileExpression()
-		argsCount++
+		nArgs++
 		if currentToken == "," {
 			eat(",", "symbol")
 		}
 	}
 	appendClose("expressionList")
-	return argsCount
+	return nArgs
 }
