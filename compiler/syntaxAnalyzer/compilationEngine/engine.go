@@ -525,9 +525,6 @@ func compileTerm() {
 		case "this":
 			writer.WritePush(codegenerator.Segment("pointer"), 0)
 			eat("this", "keyword")
-		case "return":
-			writer.WriteReturn()
-			eat("return", "keyword")
 		default:
 			return
 		}
@@ -616,9 +613,14 @@ func handleIdnTerm() {
 			}
 
 		case "[":
+			currentKind := symbolTable.KindOf(idn)
+			currentIdx := symbolTable.IndexOf(idn)
+
+			writer.WritePush(codegenerator.Segment(currentKind), currentIdx)
 			eat("[", "symbol")
 			compileExpression()
 			eat("]", "symbol")
+			writer.WriteArithmetic("+")
 
 		case "(":
 			eat("(", "symbol")
