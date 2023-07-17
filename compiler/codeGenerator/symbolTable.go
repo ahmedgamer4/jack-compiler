@@ -9,7 +9,7 @@ type FieldType string
 const (
 	Field  FieldType = "field"
 	Static FieldType = "static"
-	Arg    FieldType = "arg"
+	Arg    FieldType = "argument"
 	Lcl    FieldType = "local"
 )
 
@@ -40,6 +40,8 @@ func NewSTable() *SymbolTable {
 }
 
 func (s *SymbolTable) ResetSubroutineTable() {
+	s.ArgIdx = -1
+	s.LclIdx = -1
 	s.SubroutineSymbolTable = map[string]Var{}
 }
 
@@ -49,13 +51,17 @@ func (s *SymbolTable) Define(name, typ string, kind FieldType) {
 	case Arg, Lcl:
 		if _, ok := s.SubroutineSymbolTable[name]; !ok {
 			s.SubroutineSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.getNextIdx(kind)}
+		} else {
+			println("var already exists", name)
 		}
 	case Field, Static:
 		if _, ok := s.ClassSymbolTable[name]; !ok {
 			s.ClassSymbolTable[name] = Var{Type: typ, Kind: kind, Index: s.getNextIdx(kind)}
+		} else {
+			println("var already exists", name)
 		}
 	default:
-		println("var already exists", name)
+		break
 	}
 }
 
@@ -106,7 +112,6 @@ func (s *SymbolTable) KindOf(name string) FieldType {
 		return v.Kind
 	} else {
 		println(name)
-		// panic("empty")
 		return ""
 	}
 }

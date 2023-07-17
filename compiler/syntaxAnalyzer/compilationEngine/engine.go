@@ -20,6 +20,7 @@ var (
 
 	currentToken = ""
 	syntaxTree   = ""
+	currentClass = ""
 
 	symbolTable = codegenerator.NewSTable()
 	writer      = codegenerator.NewWriter()
@@ -151,6 +152,8 @@ func CompileClass() {
 	}
 	appendOpen("class")
 	eat("class", "keyword")
+
+	currentClass = currentToken
 	identifier()
 	eat("{", "symbol")
 
@@ -202,31 +205,60 @@ func compileClassVarDec() {
 }
 
 func compileSubroutineDec() {
+	fmt.Println(symbolTable)
+	symbolTable.ResetSubroutineTable()
+
+	var subType string
+	var funName string
+
 	appendOpen("subroutineDec")
 	switch currentToken {
 	case "function":
+		subType = "function"
 		eat("function", "keyword")
 	case "method":
+		subType = "method"
 		eat("method", "keyword")
 	case "constructor":
+		subType = "constructor"
 		eat("constructor", "keyword")
 	default:
 		handleSyntaxError("Expected (function | method | constructor) keyword on line", jacktokenizer.GetCurrentLineNumber())
 	}
 
 	handleTypes()
-	println(currentToken)
+	funName = currentToken
 	identifier()
-	println(currentToken)
 
 	eat("(", "symbol")
-	compileParameterList()
+	if subType == "method" {
+		symbolTable.Define("this", currentClass, codegenerator.Arg)
+	}
+	nArgs := compileParameterList()
+
+	switch subType {
+	case "constructor":
+		writer.WriteFunction(currentClass+"."+funName, 0)
+		writer.WritePush("constant", nArgs)
+		writer.WriteCall("Memory.alloc", 1)
+		writer.WritePop("pointer", 0)
+	case "method":
+		writer.WriteFunction(currentClass+"."+funName, nArgs)
+		writer.WritePush("argument", 0)
+		writer.WritePop("pointer", 0)
+	case "function":
+		writer.WriteFunction(currentClass+"."+funName, 1+nArgs)
+	default:
+		break
+	}
+
 	eat(")", "symbol")
 	compileSubroutineBody()
 	appendClose("subroutineDec")
 }
 
-func compileParameterList() {
+func compileParameterList() int {
+	var nArgs int
 	appendOpen("parameterList")
 
 	for currentToken != ")" {
@@ -234,12 +266,14 @@ func compileParameterList() {
 		handleTypes()
 		currentParam := currentToken
 		identifier()
-		symbolTable.Define(currentParam, currentType, "arg")
+		symbolTable.Define(currentParam, currentType, codegenerator.Arg)
+		nArgs++
 		if currentToken == "," {
 			eat(",", "symbol")
 		}
 	}
 	appendClose("parameterList")
+	return nArgs
 }
 
 func compileSubroutineBody() {
@@ -257,10 +291,13 @@ func compileVarDec() {
 	if currentToken == "var" {
 		appendOpen("varDec")
 		eat("var", "keyword")
+		currentType := currentToken
 		handleTypes()
 
 		for i < len(input) {
+			currentVar := currentToken
 			identifier()
+			symbolTable.Define(currentVar, currentType, codegenerator.Lcl)
 			if currentToken == "," {
 				eat(",", "symbol")
 			} else if currentToken == ";" {
@@ -316,7 +353,11 @@ func compileLet() {
 		// You should compile the expression after the "=" sign then pop the result to the current variable
 		compileExpression()
 
-		writer.WritePop(currentVarKind, currentVarIdx)
+		if currentVarKind == "field" {
+			writer.WritePop("this", currentVarIdx)
+		} else {
+			writer.WritePop(currentVarKind, currentVarIdx)
+		}
 
 		eat(";", "symbol")
 		appendClose("letStatement")
@@ -380,22 +421,11 @@ func compileWhile() {
 }
 
 func compileDo() {
-	var fn string
 	if currentToken == "do" {
 		appendOpen("doStatement")
 		eat("do", "keyword")
-		fn += currentToken
-		identifier()
-		if currentToken == "." {
-			eat(".", "symbol")
-			fn += "." + currentToken
-			identifier()
-		}
-		eat("(", "symbol")
-		nArgs := compileExpressionList()
-		eat(")", "symbol")
+		handleIdnTerm()
 		eat(";", "symbol")
-		writer.WriteCall(fn, nArgs)
 		writer.WritePop("temp", 0)
 		appendClose("doStatement")
 	}
@@ -423,9 +453,7 @@ func compileExpression() {
 		return
 	}
 	appendOpen("expression")
-	fstTerm, _ := strconv.Atoi(currentToken)
 
-	writer.WritePush("constant", fstTerm)
 	compileTerm()
 
 	for jacktokenizer.GetTokenType(currentToken) == "symbol" {
@@ -450,19 +478,13 @@ func compileExpression() {
 		case "=":
 			eat("=", "symbol")
 		default:
-			fmt.Println("appendClose", currentToken, jacktokenizer.GetCurrentTokensList())
 			appendClose("expression")
 			return
 		}
 
 		isTokenEmpty()
-		secTerm, err := strconv.Atoi(currentToken)
-		if err != nil {
-			handleSyntaxError("Cannot add", currentToken, "to int")
-		}
-		writer.WritePush("constant", secTerm)
-		writer.WriteArithmetic(codegenerator.Command(op))
 		compileTerm()
+		writer.WriteArithmetic(codegenerator.Command(op))
 	}
 
 	appendClose("expression")
@@ -510,34 +532,8 @@ func compileTerm() {
 			return
 		}
 	case "identifier":
-		idn := currentToken
-		identifier()
-		isTokenEmpty()
-		if jacktokenizer.GetTokenType(currentToken) == "symbol" || currentToken != ";" {
-			switch currentToken {
-			case ".":
-				idn += currentToken
-				eat(".", "symbol")
-				identifier()
-				eat("(", "symbol")
-				nArgs := compileExpressionList()
-				eat(")", "symbol")
-				writer.WriteCall(idn, nArgs)
-			case "[":
-				for currentToken == "[" {
-					eat("[", "symbol")
-					compileExpression()
-					eat("]", "symbol")
-				}
-			case "(":
-				eat("(", "symbol")
-				nArgs := compileExpressionList()
-				eat(")", "symbol")
-				writer.WriteCall(idn, nArgs)
-			default:
-				break
-			}
-		}
+		handleIdnTerm()
+
 		// TODO: Fix this function
 	case "symbol":
 		switch currentToken {
@@ -561,6 +557,97 @@ func compileTerm() {
 	}
 
 	appendClose("term")
+}
+
+func handleIdnTerm() {
+	idn := currentToken
+	identifier()
+	isTokenEmpty()
+
+	allowedSymbols := map[string]int{
+		".": 0,
+		"[": 0,
+		"(": 0,
+	}
+
+	_, ok := allowedSymbols[currentToken]
+	if jacktokenizer.GetTokenType(currentToken) == "symbol" && ok {
+		switch currentToken {
+		case ".":
+			eat(".", "symbol")
+			methodName := currentToken
+			// TODO: Finish this
+			methodClass := symbolTable.TypeOf(idn)
+
+			// If it is variable; get its type which will be a class and concatenate it to the method name
+			if methodClass != "" {
+
+				methodName = methodClass + "." + methodName
+				currentKind := symbolTable.KindOf(idn)
+				currentIdx := symbolTable.IndexOf(idn)
+
+				switch currentKind {
+				case "field":
+					writer.WritePush("this", currentIdx)
+				case "static":
+					writer.WritePush("static", currentIdx)
+				case "argument":
+					writer.WritePush("argument", currentIdx)
+				case "local":
+					writer.WritePush("local", currentIdx)
+				default:
+					panic("Error finding variable kind")
+				}
+
+				identifier()
+				eat("(", "symbol")
+				nArgs := 1 + compileExpressionList()
+				eat(")", "symbol")
+				writer.WriteCall(methodName, nArgs)
+
+			} else {
+				methodName = idn + "." + methodName
+
+				identifier()
+				eat("(", "symbol")
+				nArgs := compileExpressionList()
+				eat(")", "symbol")
+				writer.WriteCall(methodName, nArgs)
+			}
+
+		case "[":
+			eat("[", "symbol")
+			compileExpression()
+			eat("]", "symbol")
+
+		case "(":
+			eat("(", "symbol")
+			nArgs := 1 + compileExpressionList()
+			eat(")", "symbol")
+			writer.WritePush("pointer", 0)
+			writer.WriteCall(currentClass+"."+idn, nArgs)
+
+		default:
+			break
+		}
+	} else {
+		currentKind := symbolTable.KindOf(idn)
+		currentIdx := symbolTable.IndexOf(idn)
+
+		switch currentKind {
+		case codegenerator.Field:
+			writer.WritePush("this", currentIdx)
+		case codegenerator.Static:
+			writer.WritePush("static", currentIdx)
+		case codegenerator.Arg:
+			writer.WritePush("argument", currentIdx)
+		case codegenerator.Lcl:
+			writer.WritePush("local", currentIdx)
+		default:
+			println("jkdj", idn)
+			panic("Error finding variable kind")
+		}
+	}
 }
 
 /**
