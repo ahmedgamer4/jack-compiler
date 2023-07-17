@@ -2,6 +2,7 @@ package compilationengine
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -125,8 +126,9 @@ func identifier() {
 }
 
 func handleSyntaxError(message ...interface{}) {
-	fmt.Println(currentCompilingFile, ": ", message, jacktokenizer.GetCurrentLineNumber(), jacktokenizer.GetCurrentTokensList())
-	syntaxError = true
+	fmt.Print(currentCompilingFile, " ", jacktokenizer.GetCurrentLineNumber(), " ")
+	fmt.Println(message...)
+	os.Exit(1)
 }
 
 func handleTypes() {
@@ -145,6 +147,7 @@ func handleTypes() {
 }
 
 func CompileClass() {
+	writer.ResetVmCode()
 	advance()
 	isTokenEmpty()
 	if currentToken != "class" {
@@ -344,21 +347,32 @@ func compileLet() {
 		currentVarIdx := symbolTable.IndexOf(currentToken)
 
 		identifier()
-		for currentToken == "[" {
+		// TODO: Refactor this
+		if currentToken == "[" {
 			eat("[", "symbol")
 			compileExpression()
 			eat("]", "symbol")
-		}
-		eat("=", "symbol")
-		// You should compile the expression after the "=" sign then pop the result to the current variable
-		compileExpression()
+			eat("=", "symbol")
+			// You should compile the expression after the "=" sign then pop the result to the current variable
+			compileExpression()
 
-		if currentVarKind == "field" {
-			writer.WritePop("this", currentVarIdx)
+			writer.WritePop("temp", 0)
+
+			writer.WritePop("pointer", 1)
+			writer.WritePush("temp", 0)
+			writer.WritePop("that", 0)
+
 		} else {
-			writer.WritePop(currentVarKind, currentVarIdx)
-		}
+			eat("=", "symbol")
+			// You should compile the expression after the "=" sign then pop the result to the current variable
+			compileExpression()
 
+			if currentVarKind == "field" {
+				writer.WritePop("this", currentVarIdx)
+			} else {
+				writer.WritePop(currentVarKind, currentVarIdx)
+			}
+		}
 		eat(";", "symbol")
 		appendClose("letStatement")
 	}
@@ -456,6 +470,7 @@ func compileExpression() {
 
 	compileTerm()
 
+	isTokenEmpty()
 	for jacktokenizer.GetTokenType(currentToken) == "symbol" {
 		op := currentToken
 		switch currentToken {
@@ -547,7 +562,7 @@ func compileTerm() {
 			compileExpression()
 			eat(")", "symbol")
 		default:
-			handleSyntaxError("Expected ~ | - on line", jacktokenizer.GetCurrentLineNumber())
+			handleSyntaxError("Expected symbol on line", jacktokenizer.GetCurrentLineNumber(), "got", currentToken)
 		}
 	default:
 		handleSyntaxError("symbol | identifier | string | integer expected")

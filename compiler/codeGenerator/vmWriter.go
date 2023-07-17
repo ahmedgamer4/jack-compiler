@@ -22,6 +22,10 @@ func NewWriter() *VMWriter {
 	return &VMWriter{}
 }
 
+func (v *VMWriter) ResetVmCode() {
+	v.StringBuffer.Reset()
+}
+
 func (v *VMWriter) WritePush(seg Segment, i int) {
 	code := fmt.Sprintf(
 		`push %s %d
