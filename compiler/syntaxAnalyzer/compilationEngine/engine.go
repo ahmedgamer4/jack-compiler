@@ -41,7 +41,7 @@ func GetVMCode() string {
 }
 
 func appendTag(tag string, content string) {
-	switch tag {
+	switch content {
 	case "&":
 		content = "&amp;"
 	case "<":
@@ -338,6 +338,8 @@ func compileLet() {
 			eat("[", "symbol")
 			compileExpression()
 			eat("]", "symbol")
+
+			writer.WriteArithmetic("+")
 			eat("=", "symbol")
 			// You should compile the expression after the "=" sign then pop the result to the current variable
 			compileExpression()
@@ -366,32 +368,35 @@ func compileLet() {
 
 // TODO: Do not forget to finished this function
 func compileIf() {
-	l1 := uuid.New().String()
-	l2 := uuid.New().String()
+	l1 := uuid.New().String()[:8]
+	l2 := uuid.New().String()[:8]
+	lEnd := uuid.New().String()[:8]
 
 	if currentToken == "if" {
 		appendOpen("ifStatement")
 		eat("if", "keyword")
+
 		eat("(", "symbol")
 		compileExpression()
-		writer.WriteArithmetic(codegenerator.Command("~"))
 		eat(")", "symbol")
+
 		writer.WriteIf(l1)
+		writer.WriteGoto(l2)
+		writer.WriteLabel(l1)
+
 		eat("{", "symbol")
 		compileStatements()
-
-		writer.WriteGoto(l2)
-
 		eat("}", "symbol")
 
-		writer.WriteLabel(l1)
+		writer.WriteGoto(lEnd)
+		writer.WriteLabel(l2)
 		if currentToken == "else" {
 			eat("else", "keyword")
 			eat("{", "symbol")
 			compileStatements()
 			eat("}", "symbol")
-			writer.WriteLabel(l2)
 		}
+		writer.WriteLabel(lEnd)
 		appendClose("ifStatement")
 	}
 }
