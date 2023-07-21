@@ -76,11 +76,14 @@ func GetSytaxTree() string {
 func advance() bool {
 	advance := jacktokenizer.Advance()
 	input = jacktokenizer.GetCurrentTokensList()
-	for len(input) == 0 {
-		jacktokenizer.Advance()
+	for len(input) == 0 && advance {
+		advance = jacktokenizer.Advance()
 		input = jacktokenizer.GetCurrentTokensList()
 	}
-	currentToken = input[i]
+
+	if len(input) != 0 {
+		currentToken = input[i]
+	}
 	return advance
 }
 
@@ -92,7 +95,9 @@ func nextToken() bool {
 	}
 	i = 0
 	adv := advance()
-	currentToken = strings.TrimSpace(input[i])
+	if len(jacktokenizer.GetCurrentTokensList()) != 0 {
+		currentToken = strings.TrimSpace(input[i])
+	}
 	return adv
 }
 
@@ -266,7 +271,6 @@ func compileSubroutineBody() {
 	}
 
 	lclCount := symbolTable.VarCount(codegenerator.Lcl)
-	println(lclCount)
 	fieldCount := symbolTable.VarCount(codegenerator.Field)
 
 	switch subType {
@@ -280,7 +284,6 @@ func compileSubroutineBody() {
 		writer.WritePush("argument", 0)
 		writer.WritePop("pointer", 0)
 	case "function":
-		fmt.Println(symbolTable.SubroutineSymbolTable)
 		// nArgs should be the number of local arguments
 		writer.WriteFunction(currentClass+"."+funName, lclCount)
 	default:
@@ -388,33 +391,31 @@ func compileIf() {
 	l2 := "IFFALSE" + generateUniqueLabel()
 	lEnd := "IFEND" + generateUniqueLabel()
 
-	if currentToken == "if" {
-		appendOpen("ifStatement")
-		eat("if", "keyword")
+	appendOpen("ifStatement")
+	eat("if", "keyword")
 
-		eat("(", "symbol")
-		compileExpression()
-		eat(")", "symbol")
+	eat("(", "symbol")
+	compileExpression()
+	eat(")", "symbol")
 
-		writer.WriteIf(l1)
-		writer.WriteGoto(l2)
-		writer.WriteLabel(l1)
+	writer.WriteIf(l1)
+	writer.WriteGoto(l2)
+	writer.WriteLabel(l1)
 
+	eat("{", "symbol")
+	compileStatements()
+	eat("}", "symbol")
+
+	writer.WriteGoto(lEnd)
+	writer.WriteLabel(l2)
+	if currentToken == "else" {
+		eat("else", "keyword")
 		eat("{", "symbol")
 		compileStatements()
 		eat("}", "symbol")
-
-		writer.WriteGoto(lEnd)
-		writer.WriteLabel(l2)
-		if currentToken == "else" {
-			eat("else", "keyword")
-			eat("{", "symbol")
-			compileStatements()
-			eat("}", "symbol")
-		}
-		writer.WriteLabel(lEnd)
-		appendClose("ifStatement")
 	}
+	writer.WriteLabel(lEnd)
+	appendClose("ifStatement")
 }
 
 func compileWhile() {

@@ -49,6 +49,7 @@ func createFile(file string) {
 	vmCode := compilationengine.GetVMCode()
 
 	out := file[:len(file)-5] + ".test.vm"
+	println(out)
 
 	outputFile, err := os.OpenFile(out, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o644)
 	handleError(err)

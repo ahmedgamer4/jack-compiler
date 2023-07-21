@@ -117,7 +117,6 @@ func (s *SymbolTable) KindOf(name string) FieldType {
 	} else if v, ok := s.ClassSymbolTable[name]; ok {
 		return v.Kind
 	} else {
-		println(name)
 		return ""
 	}
 }
