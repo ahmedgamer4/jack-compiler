@@ -28,15 +28,15 @@ func (v *VMWriter) ResetVmCode() {
 
 func (v *VMWriter) WritePush(seg Segment, i int) {
 	code := fmt.Sprintf(
-		`push %s %d
-    `, seg, i)
+		`push %s %d%s`,
+		seg, i, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
 func (v *VMWriter) WritePop(seg Segment, i int) {
 	code := fmt.Sprintf(
-		`pop %s %d
-    `, seg, i)
+		`pop %s %d%s`,
+		seg, i, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
@@ -71,29 +71,29 @@ func (v *VMWriter) WriteArithmetic(command Command) {
 
 func (v *VMWriter) WriteLabel(label string) {
 	code := fmt.Sprintf(
-		`label %s
-    `, label)
+		`label %s%s`,
+		label, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
 func (v *VMWriter) WriteGoto(label string) {
 	code := fmt.Sprintf(
-		`goto %s
-    `, label)
+		`goto %s%s`,
+		label, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
 func (v *VMWriter) WriteIf(label string) {
 	code := fmt.Sprintf(
-		`if-goto %s
-    `, label)
+		`if-goto %s%s`,
+		label, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
 func (v *VMWriter) WriteCall(name string, nArgs int) {
 	code := fmt.Sprintf(
-		`call %s %d
-    `, name, nArgs)
+		`call %s %d%s`,
+		name, nArgs, "\n")
 	v.StringBuffer.WriteString(code)
 }
 
