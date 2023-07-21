@@ -45,6 +45,12 @@ func (s *SymbolTable) ResetSubroutineTable() {
 	s.SubroutineSymbolTable = map[string]Var{}
 }
 
+func (s *SymbolTable) ResetClassTable() {
+	s.StaticIdx = -1
+	s.FieldIdx = -1
+	s.ClassSymbolTable = map[string]Var{}
+}
+
 func (s *SymbolTable) Define(name, typ string, kind FieldType) {
 	switch kind {
 

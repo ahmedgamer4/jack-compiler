@@ -9,6 +9,8 @@ import (
 )
 
 func StartParsing() {
+	println("Compiling...")
+
 	inputInfo, err := os.Stat(os.Args[1])
 	handleError(err)
 	if inputInfo.IsDir() {
@@ -17,13 +19,17 @@ func StartParsing() {
 
 		for _, file := range files {
 			var filePath string
+
 			compilationengine.SetCurrentCFile(file.Name())
+			jacktokenizer.SetCurrentCFile(file.Name())
+
 			if os.Args[1][len(os.Args[1])-1] == '/' {
 				filePath = os.Args[1] + file.Name()
+			} else {
+				filePath = os.Args[1] + "/" + file.Name()
 			}
-			filePath = os.Args[1] + "/" + file.Name()
+
 			if path.Ext(file.Name()) == ".jack" {
-				println(filePath)
 				jacktokenizer.OpenFile(filePath)
 				createFile(filePath)
 			}
@@ -43,11 +49,13 @@ func createFile(file string) {
 	vmCode := compilationengine.GetVMCode()
 
 	out := file[:len(file)-5] + ".test.vm"
-	println(out)
+
 	outputFile, err := os.OpenFile(out, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o644)
 	handleError(err)
 
-	outputFile.WriteString(vmCode)
+	if !compilationengine.IsSyntaxError() {
+		outputFile.WriteString(vmCode)
+	}
 }
 
 func handleError(err error) {

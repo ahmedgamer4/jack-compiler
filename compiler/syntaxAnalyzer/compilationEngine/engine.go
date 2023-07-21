@@ -2,7 +2,6 @@ package compilationengine
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -93,42 +92,31 @@ func appendClose(tag string) {
 	syntaxTree += "</" + tag + ">\n"
 }
 
-func isTokenEmpty() {
-	for currentToken == "" || currentToken == " " {
-		nextToken()
-	}
-}
-
 func eat(str string, tokenType string) {
-	isTokenEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == tokenType {
 		if currentToken == str {
 			appendTag(tag, currentToken)
 			nextToken()
-			isTokenEmpty()
 			return
 		}
 	}
-	handleSyntaxError("Expected", tokenType, str, "got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken)
+	handleSyntaxError("Expected", tokenType, str, "got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber())
 }
 
 func identifier() {
-	isTokenEmpty()
 	tag := jacktokenizer.GetTokenType(currentToken)
 	if tag == "identifier" {
 		appendTag(tag, currentToken)
 		nextToken()
-		isTokenEmpty()
 		return
 	}
-	handleSyntaxError("Expected identifier got", tag, "on line", jacktokenizer.GetCurrentLineNumber(), currentToken, input)
+	handleSyntaxError("Expected identifier got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber())
 }
 
 func handleSyntaxError(message ...interface{}) {
-	fmt.Print(currentCompilingFile, " ", jacktokenizer.GetCurrentLineNumber(), " ")
+	fmt.Print(currentCompilingFile, ": ")
 	fmt.Println(message...)
-	os.Exit(1)
 }
 
 func handleTypes() {
@@ -148,8 +136,8 @@ func handleTypes() {
 
 func CompileClass() {
 	writer.ResetVmCode()
+	symbolTable.ResetClassTable()
 	advance()
-	isTokenEmpty()
 	if currentToken != "class" {
 		handleSyntaxError("Expected keyword class on line", jacktokenizer.GetCurrentLineNumber())
 	}
@@ -170,7 +158,6 @@ func CompileClass() {
 
 	eat("}", "symbol")
 	appendClose("class")
-	fmt.Println(symbolTable)
 }
 
 func compileClassVarDec() {
@@ -208,7 +195,6 @@ func compileClassVarDec() {
 }
 
 func compileSubroutineDec() {
-	fmt.Println(symbolTable)
 	symbolTable.ResetSubroutineTable()
 
 	var subType string
@@ -449,7 +435,6 @@ func compileReturn() {
 	if currentToken == "return" {
 		appendOpen("returnStatement")
 		eat("return", "keyword")
-		isTokenEmpty()
 		if currentToken == ";" {
 			writer.WritePush("constant", 0)
 		}
@@ -461,8 +446,6 @@ func compileReturn() {
 }
 
 func compileExpression() {
-	isTokenEmpty()
-
 	if currentToken == ";" {
 		return
 	}
@@ -470,7 +453,6 @@ func compileExpression() {
 
 	compileTerm()
 
-	isTokenEmpty()
 	for jacktokenizer.GetTokenType(currentToken) == "symbol" {
 		op := currentToken
 		switch currentToken {
@@ -497,7 +479,6 @@ func compileExpression() {
 			return
 		}
 
-		isTokenEmpty()
 		compileTerm()
 		writer.WriteArithmetic(codegenerator.Command(op))
 	}
@@ -513,7 +494,6 @@ func compileTerm() {
 
 	switch jacktokenizer.GetTokenType(currentToken) {
 	case "integerConstant":
-		isTokenEmpty()
 		i, err := strconv.Atoi(currentToken)
 		if err != nil {
 			panic("Error converting a string into integer")
@@ -522,7 +502,6 @@ func compileTerm() {
 		appendTag("integerConstant", currentToken)
 		nextToken()
 	case "stringConstant":
-		isTokenEmpty()
 		appendTag("stringConstant", currentToken)
 		nextToken()
 	case "keyword":
@@ -574,7 +553,6 @@ func compileTerm() {
 func handleIdnTerm() {
 	idn := currentToken
 	identifier()
-	isTokenEmpty()
 
 	allowedSymbols := map[string]int{
 		".": 0,
