@@ -16,11 +16,16 @@ var (
 	currenLine       string
 	currentToken     string
 	currentTokenList []string
+	currentCFile     string
 
 	file *os.File
 
 	inBlockComment, inString, inCurrly, inBracket bool // These are the parser state
 )
+
+func SetCurrentCFile(file string) {
+	currentCFile = file
+}
 
 func GetCurrentTokensList() []string {
 	return currentTokenList
@@ -91,7 +96,7 @@ func handleTokens(currentLine string) {
 			if letter == '*' && i < len(currentLine)-1 && currentLine[i+1] == '/' {
 				tempToken = ""
 				if !inBlockComment {
-					fmt.Println("Missing /* on position ", lineNumber, ", ", pos)
+					fmt.Println(currentCFile, "Missing /* on position ", lineNumber, ", ", pos)
 				} else {
 					inBlockComment = false
 					continue
@@ -99,7 +104,7 @@ func handleTokens(currentLine string) {
 			} else if letter == '/' && i < len(currentLine)-1 && currentLine[i+1] == '*' {
 				tempToken = ""
 				if inBlockComment {
-					fmt.Println("Missing */ on position ", lineNumber, ", ", pos)
+					fmt.Println(currentCFile, "Missing */ on position ", lineNumber, ", ", pos)
 					tempToken = ""
 				} else {
 					inBlockComment = true
@@ -122,13 +127,13 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 				} else if letter == '{' {
 					if inCurrly {
-						fmt.Println("Missing } on line", lineNumber)
+						fmt.Println(currentCFile, "Missing } on line", lineNumber)
 					} else {
 						inCurrly = true
 					}
 				} else if letter == '[' {
 					if inBracket {
-						fmt.Println("Missing ] on line", lineNumber)
+						fmt.Println(currentCFile, "Missing ] on line", lineNumber)
 					} else {
 						inBracket = true
 					}
@@ -147,7 +152,7 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 
 					if !inCurrly {
-						fmt.Println("Missing { on line", lineNumber)
+						fmt.Println(currentCFile, "Missing { on line", lineNumber)
 					} else {
 						inCurrly = false
 					}
@@ -156,16 +161,16 @@ func handleTokens(currentLine string) {
 					tempToken = ""
 
 					if !inBracket {
-						fmt.Println("Missing [ on line", lineNumber)
+						fmt.Println(currentCFile, "Missing [ on line", lineNumber)
 					} else {
 						inBracket = false
 					}
 				}
 			} else if string(letter) == "\n" && inString {
-				fmt.Println("Missing \" in line", lineNumber)
+				fmt.Println(currentCFile, "Missing \" in line", lineNumber)
 			}
 		}
-		if currentToken != "" || currentToken == " " {
+		if currentToken != "" && currentToken != " " {
 			currentTokenList = append(currentTokenList, currentToken)
 		}
 		currentToken = ""
@@ -184,7 +189,7 @@ func Advance() bool {
 		}
 
 		if !isValidParentheses(currenLine) {
-			fmt.Println("Invalid parentheses on line ", lineNumber)
+			fmt.Println(currentCFile, "Invalid parentheses on line ", lineNumber)
 		}
 
 		handleTokens(currenLine)
