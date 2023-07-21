@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	codegenerator "github.com/ahmedgamer4/jack-compiler/compiler/codeGenerator"
 	jacktokenizer "github.com/ahmedgamer4/jack-compiler/compiler/syntaxAnalyzer/jackTokenizer"
-
-	"github.com/google/uuid"
 )
 
 var (
@@ -26,7 +25,20 @@ var (
 	writer      = codegenerator.NewWriter()
 
 	currentCompilingFile = ""
+
+	counter int
+	mutex   sync.Mutex
+
+	subType string
+	funName string
 )
+
+func generateUniqueLabel() string {
+	mutex.Lock()
+	defer mutex.Unlock()
+	counter++
+	return fmt.Sprintf("LABEL_%d", counter)
+}
 
 func SetCurrentCFile(filename string) {
 	currentCompilingFile = filename
@@ -197,9 +209,6 @@ func compileClassVarDec() {
 func compileSubroutineDec() {
 	symbolTable.ResetSubroutineTable()
 
-	var subType string
-	var funName string
-
 	appendOpen("subroutineDec")
 	switch currentToken {
 	case "function":
@@ -219,28 +228,12 @@ func compileSubroutineDec() {
 	funName = currentToken
 	identifier()
 
-	eat("(", "symbol")
 	if subType == "method" {
 		symbolTable.Define("this", currentClass, codegenerator.Arg)
 	}
-	nArgs := compileParameterList()
 
-	switch subType {
-	case "constructor":
-		writer.WriteFunction(currentClass+"."+funName, 0)
-		writer.WritePush("constant", nArgs)
-		writer.WriteCall("Memory.alloc", 1)
-		writer.WritePop("pointer", 0)
-	case "method":
-		writer.WriteFunction(currentClass+"."+funName, nArgs)
-		writer.WritePush("argument", 0)
-		writer.WritePop("pointer", 0)
-	case "function":
-		writer.WriteFunction(currentClass+"."+funName, 1+nArgs)
-	default:
-		break
-	}
-
+	eat("(", "symbol")
+	compileParameterList()
 	eat(")", "symbol")
 	compileSubroutineBody()
 	appendClose("subroutineDec")
@@ -271,6 +264,29 @@ func compileSubroutineBody() {
 	for currentToken == "var" {
 		compileVarDec()
 	}
+
+	lclCount := symbolTable.VarCount(codegenerator.Lcl)
+	println(lclCount)
+	fieldCount := symbolTable.VarCount(codegenerator.Field)
+
+	switch subType {
+	case "constructor":
+		writer.WriteFunction(currentClass+"."+funName, 0)
+		writer.WritePush("constant", fieldCount)
+		writer.WriteCall("Memory.alloc", 1)
+		writer.WritePop("pointer", 0)
+	case "method":
+		writer.WriteFunction(currentClass+"."+funName, lclCount)
+		writer.WritePush("argument", 0)
+		writer.WritePop("pointer", 0)
+	case "function":
+		fmt.Println(symbolTable.SubroutineSymbolTable)
+		// nArgs should be the number of local arguments
+		writer.WriteFunction(currentClass+"."+funName, lclCount)
+	default:
+		break
+	}
+
 	compileStatements()
 	eat("}", "symbol")
 	appendClose("subroutineBody")
@@ -368,9 +384,9 @@ func compileLet() {
 
 // TODO: Do not forget to finished this function
 func compileIf() {
-	l1 := uuid.New().String()[:8]
-	l2 := uuid.New().String()[:8]
-	lEnd := uuid.New().String()[:8]
+	l1 := "IFTRUE" + generateUniqueLabel()
+	l2 := "IFFALSE" + generateUniqueLabel()
+	lEnd := "IFEND" + generateUniqueLabel()
 
 	if currentToken == "if" {
 		appendOpen("ifStatement")
@@ -402,8 +418,8 @@ func compileIf() {
 }
 
 func compileWhile() {
-	l1 := uuid.New().String()
-	l2 := uuid.New().String()
+	l1 := "WHILETRUE" + generateUniqueLabel()
+	l2 := "WHILEEND" + generateUniqueLabel()
 
 	if currentToken == "while" {
 		appendOpen("whileStatement")
@@ -508,6 +524,17 @@ func compileTerm() {
 		nextToken()
 	case "stringConstant":
 		appendTag("stringConstant", currentToken)
+		curStr := currentToken[1 : len(currentToken)-1]
+		strLen := len(curStr)
+
+		writer.WritePush("constant", strLen)
+		writer.WriteCall("String.new", 1)
+
+		for _, char := range curStr {
+			charAscii := int(char)
+			writer.WritePush("constant", charAscii)
+			writer.WriteCall("String.appendChar", 2)
+		}
 		nextToken()
 	case "keyword":
 		switch currentToken {
