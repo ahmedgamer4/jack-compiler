@@ -98,13 +98,13 @@ func (s *SymbolTable) getNextIdx(kind FieldType) int {
 func (s *SymbolTable) VarCount(kind FieldType) int {
 	switch kind {
 	case Static:
-		return s.StaticIdx
+		return s.StaticIdx + 1
 	case Field:
-		return s.FieldIdx
+		return s.FieldIdx + 1
 	case Lcl:
-		return s.LclIdx
+		return s.LclIdx + 1
 	case Arg:
-		return s.ArgIdx
+		return s.ArgIdx + 1
 	default:
 		println("Kind does not exist", kind)
 		return -1
