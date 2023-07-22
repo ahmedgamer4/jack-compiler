@@ -386,10 +386,8 @@ func compileLet() {
 	}
 }
 
-// TODO: Do not forget to finished this function
 func compileIf() {
-	l1 := "IFTRUE" + generateUniqueLabel()
-	l2 := "IFFALSE" + generateUniqueLabel()
+	l2False := "IFFALSE" + generateUniqueLabel()
 	lEnd := "IFEND" + generateUniqueLabel()
 
 	appendOpen("ifStatement")
@@ -398,24 +396,24 @@ func compileIf() {
 	eat("(", "symbol")
 	compileExpression()
 	eat(")", "symbol")
-
-	writer.WriteIf(l1)
-	writer.WriteGoto(l2)
-	writer.WriteLabel(l1)
+	writer.WriteArithmetic("~")
+	writer.WriteIf(l2False)
 
 	eat("{", "symbol")
 	compileStatements()
 	eat("}", "symbol")
 
-	writer.WriteGoto(lEnd)
-	writer.WriteLabel(l2)
 	if currentToken == "else" {
+		writer.WriteGoto(lEnd)
+		writer.WriteLabel(l2False)
 		eat("else", "keyword")
 		eat("{", "symbol")
 		compileStatements()
 		eat("}", "symbol")
+		writer.WriteLabel(lEnd)
+	} else {
+		writer.WriteLabel(l2False)
 	}
-	writer.WriteLabel(lEnd)
 	appendClose("ifStatement")
 }
 
