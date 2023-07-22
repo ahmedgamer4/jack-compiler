@@ -118,7 +118,7 @@ func eat(str string, tokenType string) {
 			return
 		}
 	}
-	handleSyntaxError("Expected", tokenType, str, "got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber())
+	handleSyntaxError("Expected", tokenType, str, "got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber(), jacktokenizer.GetCurrentTokensList())
 }
 
 func identifier() {
@@ -128,7 +128,7 @@ func identifier() {
 		nextToken()
 		return
 	}
-	handleSyntaxError("Expected identifier got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber())
+	handleSyntaxError("Expected identifier got", tag, currentToken, "on line", jacktokenizer.GetCurrentLineNumber(), jacktokenizer.GetCurrentTokensList())
 }
 
 func handleSyntaxError(message ...interface{}) {
@@ -358,6 +358,7 @@ func compileLet() {
 			compileExpression()
 			eat("]", "symbol")
 
+			writer.WritePush(currentVarKind, currentVarIdx)
 			writer.WriteArithmetic("+")
 			eat("=", "symbol")
 			// You should compile the expression after the "=" sign then pop the result to the current variable
@@ -647,6 +648,8 @@ func handleIdnTerm() {
 			compileExpression()
 			eat("]", "symbol")
 			writer.WriteArithmetic("+")
+			writer.WritePop("pointer", 1)
+			writer.WritePush("that", 0)
 
 		case "(":
 			eat("(", "symbol")
@@ -672,7 +675,6 @@ func handleIdnTerm() {
 		case codegenerator.Lcl:
 			writer.WritePush("local", currentIdx)
 		default:
-			println("jkdj", idn)
 			panic("Error finding variable kind")
 		}
 	}

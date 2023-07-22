@@ -119,7 +119,7 @@ func handleTokens(currentLine string) {
 				continue
 			}
 			if !inString {
-				if _, ok := Keywords[tempToken]; ok {
+				if _, ok := Keywords[tempToken]; ok && !unicode.IsLetter(rune(currentLine[i+1])) {
 					currentToken = tempToken
 					tempToken = ""
 				} else if _, ok := Symbols[tempToken]; ok {
